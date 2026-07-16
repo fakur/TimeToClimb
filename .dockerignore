@@ -1,0 +1,15 @@
+node_modules
+.next
+.git
+.gitignore
+README.md
+deploy-gcp.bat
+schema.sql
+scratch
+.env.local
+package-lock.json
+eslint.config.mjs
+postcss.config.mjs
+tsconfig.json
+next-env.d.ts
+*.pdf

@@ -1,0 +1,7 @@
+ubah menu catatan transaksi menjadi detail-master (atas-bawah)
+input detail berupa : tanggal - user, saldo awal, kategori, keterangan dan jumlah nominal
+master hanya berisi semua data yang saat ini sedang diinput oleh berdasar user-tanggal
+
+
+riwayat transaksi ditampilkan dengan cara grouping berdasar user, tanggal.
+isi tabelnya adalah tanggal, user, jumlah pengeeluaran, jumlah pemasukan, saldo akhir pemasukan sampai saat input  dan tombol edit-hapus

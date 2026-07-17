@@ -4,6 +4,7 @@ export interface User {
   id: number;
   username: string;
   role: 'kasir' | 'manager' | 'owner';
+  datastatus?: string;
 }
 
 export interface KategoriTransaksi {
@@ -12,6 +13,7 @@ export interface KategoriTransaksi {
   tipe: 'pemasukan' | 'pengeluaran';
   is_active: boolean;
   created_at?: string;
+  datastatus?: string;
 }
 
 export interface MasterTransaksi {
@@ -25,6 +27,7 @@ export interface MasterTransaksi {
   created_user_id: number;
   edited_at?: string;
   edited_user_id?: number;
+  datastatus?: string;
   // Join field
   user?: User;
 }
@@ -39,6 +42,7 @@ export interface DetailTransaksi {
   created_user_id: number;
   edited_at?: string;
   edited_user_id?: number;
+  datastatus?: string;
 }
 
 // Backwards-compatible view type representing DetailTransaksi joined with MasterTransaksi
@@ -52,6 +56,7 @@ export interface TransaksiHarian {
   created_user_id: number;
   edited_at?: string;
   edited_user_id?: number;
+  datastatus?: string;
   
   // Flattened master properties
   tanggal: string;
@@ -73,6 +78,7 @@ export interface LogHistory {
   detail_sebelum: string; // JSON string of transaction before change
   detail_sesudah?: string; // JSON string of transaction after change (for edit)
   created_at: string;
+  datastatus?: string;
   user?: User;
 }
 
@@ -100,6 +106,7 @@ export interface MstStock {
   keterangan?: string;
   is_active: boolean;
   created_at?: string;
+  datastatus?: string;
 }
 
 export interface StockOpnameDetail {
@@ -109,6 +116,7 @@ export interface StockOpnameDetail {
   stock_freezer: number;
   stock_chiller: number;
   created_at?: string;
+  datastatus?: string;
   // Join field
   item?: MstStock;
 }
@@ -121,6 +129,7 @@ export interface StockOpname {
   created_user_id?: number;
   status: 'draft' | 'selesai';
   created_at?: string;
+  datastatus?: string;
   // Join fields
   details?: StockOpnameDetail[];
   user?: User;
@@ -156,6 +165,7 @@ export const loginUser = async (username: string, password?: string): Promise<Us
     .from('users')
     .select('*')
     .eq('username', cleanUsername)
+    .neq('datastatus', 'DELETE')
     .maybeSingle();
   if (error || !data) return null;
   
@@ -179,6 +189,7 @@ export const getUsers = async (): Promise<User[]> => {
   const { data, error } = await supabase
     .from('users')
     .select('*')
+    .neq('datastatus', 'DELETE')
     .order('id', { ascending: true });
   if (error) {
     console.error('Supabase getUsers error:', error);
@@ -239,53 +250,11 @@ export const updateUser = async (
 };
 
 export const deleteUser = async (id: number): Promise<boolean> => {
-  // 1. Check if used in master_transaksi
-  const { data: masterUsed, error: err1 } = await supabase
-    .from('master_transaksi')
-    .select('id')
-    .or(`user_id.eq.${id},created_user_id.eq.${id},edited_user_id.eq.${id}`)
-    .limit(1);
-
-  if (err1) {
-    console.error('Check master_transaksi user error:', err1);
-  } else if (masterUsed && masterUsed.length > 0) {
-    throw new Error('Pengguna ini tidak dapat dihapus karena sudah memiliki rekaman closing harian (master_transaksi).');
-  }
-
-  // 2. Check if used in trx_dtl
-  const { data: dtlUsed, error: err2 } = await supabase
-    .from('trx_dtl')
-    .select('id')
-    .or(`created_user_id.eq.${id},edited_user_id.eq.${id}`)
-    .limit(1);
-
-  if (err2) {
-    console.error('Check trx_dtl user error:', err2);
-  } else if (dtlUsed && dtlUsed.length > 0) {
-    throw new Error('Pengguna ini tidak dapat dihapus karena sudah memiliki rekaman transaksi harian (trx_dtl).');
-  }
-
-  // 3. Check if used in log_history
-  const { data: logUsed, error: err3 } = await supabase
-    .from('log_history')
-    .select('id')
-    .eq('user_id', id)
-    .limit(1);
-
-  if (err3) {
-    console.error('Check log_history user error:', err3);
-  } else if (logUsed && logUsed.length > 0) {
-    throw new Error('Pengguna ini tidak dapat dihapus karena tercatat dalam log audit perubahan data.');
-  }
-
   const { error } = await supabase
     .from('users')
-    .delete()
+    .update({ datastatus: 'DELETE' })
     .eq('id', id);
   if (error) {
-    if (error.code === '23503') {
-      throw new Error('Pengguna ini sedang direferensikan dalam transaksi harian dan tidak dapat dihapus.');
-    }
     throw new Error(error.message);
   }
   return true;
@@ -296,6 +265,7 @@ export const getCategories = async (): Promise<KategoriTransaksi[]> => {
   const { data, error } = await supabase
     .from('kategori_transaksi')
     .select('*')
+    .neq('datastatus', 'DELETE')
     .order('id', { ascending: true });
   if (error) {
     console.error('Supabase getCategories error:', error);
@@ -356,40 +326,11 @@ export const updateCategory = async (
 };
 
 export const deleteCategory = async (id: number): Promise<boolean> => {
-  // 1. Check if used in detail_transaksi
-  const { data: detailUsed, error: err1 } = await supabase
-    .from('detail_transaksi')
-    .select('id')
-    .eq('kategori_id', id)
-    .limit(1);
-
-  if (err1) {
-    console.error('Check detail_transaksi error:', err1);
-  } else if (detailUsed && detailUsed.length > 0) {
-    throw new Error('Jenis transaksi ini tidak dapat dihapus karena ID nya sudah digunakan di tabel detail_transaksi.');
-  }
-
-  // 2. Check if used in trx_dtl
-  const { data: dtlUsed, error: err2 } = await supabase
-    .from('trx_dtl')
-    .select('id')
-    .eq('kategori_id', id)
-    .limit(1);
-
-  if (err2) {
-    console.error('Check trx_dtl error:', err2);
-  } else if (dtlUsed && dtlUsed.length > 0) {
-    throw new Error('Jenis transaksi ini tidak dapat dihapus karena ID nya sudah digunakan di tabel trx_dtl.');
-  }
-
   const { error } = await supabase
     .from('kategori_transaksi')
-    .delete()
+    .update({ datastatus: 'DELETE' })
     .eq('id', id);
   if (error) {
-    if (error.code === '23503') {
-      throw new Error('Jenis transaksi ini sedang digunakan dalam transaksi harian dan tidak dapat dihapus.');
-    }
     throw new Error(error.message);
   }
   return true;
@@ -404,6 +345,7 @@ export const getTransactions = async (): Promise<TransaksiHarian[]> => {
       master:master_transaksi(*, user:users!master_transaksi_user_id_fkey(*)),
       kategori:kategori_transaksi(*)
     `)
+    .neq('datastatus', 'DELETE')
     .order('id', { ascending: false });
   
   if (error) {
@@ -575,7 +517,7 @@ export const deleteTransaction = async (id: number): Promise<boolean> => {
 
   const { error } = await supabase
     .from('detail_transaksi')
-    .delete()
+    .update({ datastatus: 'DELETE' })
     .eq('id', id);
   
   if (error) {
@@ -827,6 +769,7 @@ export const getTrxDetails = async (): Promise<TrxDtl[]> => {
       *,
       kategori:kategori_transaksi(*)
     `)
+    .neq('datastatus', 'DELETE')
     .order('tanggal', { ascending: false })
     .order('id', { ascending: false });
 
@@ -918,7 +861,7 @@ export const updateTrxDetail = async (
 export const deleteTrxDetail = async (id: number): Promise<boolean> => {
   const { error } = await supabase
     .from('trx_dtl')
-    .delete()
+    .update({ datastatus: 'DELETE' })
     .eq('id', id);
 
   if (error) {
@@ -934,6 +877,7 @@ export const recalculateTrxDtlBalances = async (): Promise<void> => {
   const { data: rows, error } = await supabase
     .from('trx_dtl')
     .select('*, kategori:kategori_transaksi(tipe)')
+    .neq('datastatus', 'DELETE')
     .order('tanggal', { ascending: true })
     .order('id', { ascending: true });
 
@@ -971,6 +915,7 @@ export const getStockItems = async (): Promise<MstStock[]> => {
   const { data, error } = await supabase
     .from('mst_stocks')
     .select('*')
+    .neq('datastatus', 'DELETE')
     .order('id', { ascending: true });
   if (error) {
     console.error('Supabase getStockItems error:', error);
@@ -1025,22 +970,9 @@ export const updateStockItem = async (
 };
 
 export const deleteStockItem = async (id: number): Promise<boolean> => {
-  // Check if ID is used in stock_opname_details
-  const { data: used, error: checkErr } = await supabase
-    .from('stock_opname_details')
-    .select('id')
-    .eq('item_id', id)
-    .limit(1);
-
-  if (checkErr) {
-    console.error('Check stock_opname_details reference error:', checkErr);
-  } else if (used && used.length > 0) {
-    throw new Error('Barang ini tidak dapat dihapus karena sudah memiliki catatan riwayat stock opname.');
-  }
-
   const { error } = await supabase
     .from('mst_stocks')
-    .delete()
+    .update({ datastatus: 'DELETE' })
     .eq('id', id);
 
   if (error) {
@@ -1062,6 +994,7 @@ export const getStockOpnames = async (): Promise<StockOpname[]> => {
         item:mst_stocks(*)
       )
     `)
+    .neq('datastatus', 'DELETE')
     .order('tanggal', { ascending: false })
     .order('jam', { ascending: false });
 
@@ -1188,7 +1121,7 @@ export const updateStockOpname = async (
 export const deleteStockOpname = async (id: number): Promise<boolean> => {
   const { error } = await supabase
     .from('stock_opname')
-    .delete()
+    .update({ datastatus: 'DELETE' })
     .eq('id', id);
 
   if (error) {

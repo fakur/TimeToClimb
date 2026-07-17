@@ -1,10 +1,8 @@
 -- =========================================================================
--- SQL MIGRATION: TRANSACTION MASTER-DETAIL REFACTOR
+-- SQL MIGRATION: TRANSACTION MASTER-DETAIL REFACTOR & SOFT DELETE SUPPORT
 -- =========================================================================
 -- Jalankan skrip ini di SQL Editor dashboard Supabase Anda untuk memperbarui
--- skema database sesuai dengan model transaksi terbaru.
--- Skrip ini juga memigrasikan data riwayat lama dari tabel `transaksi_harian`
--- ke dalam tabel `master_transaksi` & `detail_transaksi` secara otomatis.
+-- skema database sesuai dengan model transaksi terbaru dan mendukung Soft Delete.
 -- =========================================================================
 
 -- 1. Membuat tabel master_transaksi (Sesi Shift Kerja)
@@ -19,6 +17,7 @@ CREATE TABLE IF NOT EXISTS master_transaksi (
     created_user_id BIGINT REFERENCES users(id),
     edited_at TIMESTAMPTZ,
     edited_user_id BIGINT REFERENCES users(id),
+    datastatus VARCHAR(20) DEFAULT 'ACTIVE' NOT NULL,
     CONSTRAINT unique_user_date_shift UNIQUE (user_id, tanggal, shift)
 );
 
@@ -32,7 +31,8 @@ CREATE TABLE IF NOT EXISTS detail_transaksi (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_user_id BIGINT REFERENCES users(id),
     edited_at TIMESTAMPTZ,
-    edited_user_id BIGINT REFERENCES users(id)
+    edited_user_id BIGINT REFERENCES users(id),
+    datastatus VARCHAR(20) DEFAULT 'ACTIVE' NOT NULL
 );
 
 -- 3. Blok Migrasi Data Otomatis & Pencadangan Tabel Lama
@@ -90,7 +90,8 @@ CREATE TABLE IF NOT EXISTS trx_dtl (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     created_user_id BIGINT REFERENCES users(id),
     edited_at TIMESTAMPTZ,
-    edited_user_id BIGINT REFERENCES users(id)
+    edited_user_id BIGINT REFERENCES users(id),
+    datastatus VARCHAR(20) DEFAULT 'ACTIVE' NOT NULL
 );
 
 -- 5. Membuat tabel log_history (Audit Trail Log)
@@ -101,7 +102,8 @@ CREATE TABLE IF NOT EXISTS log_history (
     user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
     detail_sebelum TEXT NOT NULL,
     detail_sesudah TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    datastatus VARCHAR(20) DEFAULT 'ACTIVE' NOT NULL
 );
 
 -- 6. Membuat tabel mst_stocks (Master Data Barang Persediaan)
@@ -111,7 +113,8 @@ CREATE TABLE IF NOT EXISTS mst_stocks (
     satuan VARCHAR(50) NOT NULL,
     keterangan TEXT,
     is_active BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    datastatus VARCHAR(20) DEFAULT 'ACTIVE' NOT NULL
 );
 
 -- 7. Membuat tabel stock_opname (Sesi Stock Opname Harian)
@@ -122,7 +125,8 @@ CREATE TABLE IF NOT EXISTS stock_opname (
     checker VARCHAR(255) NOT NULL,
     created_user_id BIGINT REFERENCES users(id),
     status VARCHAR(20) DEFAULT 'draft' CHECK (status IN ('draft', 'selesai')),
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    datastatus VARCHAR(20) DEFAULT 'ACTIVE' NOT NULL
 );
 
 -- 8. Membuat tabel stock_opname_details (Detail Item Stock Opname)
@@ -132,14 +136,13 @@ CREATE TABLE IF NOT EXISTS stock_opname_details (
     item_id BIGINT NOT NULL REFERENCES mst_stocks(id) ON DELETE RESTRICT,
     stock_freezer NUMERIC(15, 2) DEFAULT 0,
     stock_chiller NUMERIC(15, 2) DEFAULT 0,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    datastatus VARCHAR(20) DEFAULT 'ACTIVE' NOT NULL
 );
 
 -- =========================================================================
 -- OPTIONAL: KONFIGURASI ROW LEVEL SECURITY (RLS) DI DASHBOARD SUPABASE
--- Jika Anda mengaktifkan RLS di Supabase, jalankan query di bawah ini di 
--- SQL Editor Supabase untuk mematikan RLS (paling disarankan untuk demo/development):
---
+-- =========================================================================
 ALTER TABLE users DISABLE ROW LEVEL SECURITY;
 ALTER TABLE kategori_transaksi DISABLE ROW LEVEL SECURITY;
 ALTER TABLE master_transaksi DISABLE ROW LEVEL SECURITY;
@@ -149,5 +152,16 @@ ALTER TABLE trx_dtl DISABLE ROW LEVEL SECURITY;
 ALTER TABLE mst_stocks DISABLE ROW LEVEL SECURITY;
 ALTER TABLE stock_opname DISABLE ROW LEVEL SECURITY;
 ALTER TABLE stock_opname_details DISABLE ROW LEVEL SECURITY;
--- =========================================================================
 
+-- =========================================================================
+-- MIGRATION QUERY: JALANKAN INI DI SQL EDITOR SUPABASE UNTUK DATABASE AKTIF
+-- =========================================================================
+-- ALTER TABLE users ADD COLUMN IF NOT EXISTS datastatus VARCHAR(20) DEFAULT 'ACTIVE' NOT NULL;
+-- ALTER TABLE kategori_transaksi ADD COLUMN IF NOT EXISTS datastatus VARCHAR(20) DEFAULT 'ACTIVE' NOT NULL;
+-- ALTER TABLE master_transaksi ADD COLUMN IF NOT EXISTS datastatus VARCHAR(20) DEFAULT 'ACTIVE' NOT NULL;
+-- ALTER TABLE detail_transaksi ADD COLUMN IF NOT EXISTS datastatus VARCHAR(20) DEFAULT 'ACTIVE' NOT NULL;
+-- ALTER TABLE trx_dtl ADD COLUMN IF NOT EXISTS datastatus VARCHAR(20) DEFAULT 'ACTIVE' NOT NULL;
+-- ALTER TABLE log_history ADD COLUMN IF NOT EXISTS datastatus VARCHAR(20) DEFAULT 'ACTIVE' NOT NULL;
+-- ALTER TABLE mst_stocks ADD COLUMN IF NOT EXISTS datastatus VARCHAR(20) DEFAULT 'ACTIVE' NOT NULL;
+-- ALTER TABLE stock_opname ADD COLUMN IF NOT EXISTS datastatus VARCHAR(20) DEFAULT 'ACTIVE' NOT NULL;
+-- ALTER TABLE stock_opname_details ADD COLUMN IF NOT EXISTS datastatus VARCHAR(20) DEFAULT 'ACTIVE' NOT NULL;

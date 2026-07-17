@@ -173,11 +173,13 @@ export default function Home() {
   const [users, setUsers] = useState<User[]>([]);
   const [newUserUsername, setNewUserUsername] = useState('');
   const [newUserRole, setNewUserRole] = useState<'kasir' | 'manager' | 'owner'>('kasir');
+  const [newUserPassword, setNewUserPassword] = useState('');
   const [userError, setUserError] = useState('');
   const [userSuccess, setUserSuccess] = useState('');
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [editUserUsername, setEditUserUsername] = useState('');
   const [editUserRole, setEditUserRole] = useState<'kasir' | 'manager' | 'owner'>('kasir');
+  const [editUserPassword, setEditUserPassword] = useState('');
 
   // Log History State
   const [logHistory, setLogHistory] = useState<LogHistory[]>([]);
@@ -860,13 +862,19 @@ export default function Home() {
       return;
     }
 
+    if (newUserPassword && newUserPassword.length < 6) {
+      setUserError('Kata sandi harus minimal 6 karakter');
+      return;
+    }
+
     try {
       setLoading(true);
-      const created = await createUser(newUserUsername, newUserRole);
+      const created = await createUser(newUserUsername, newUserRole, newUserPassword);
       if (created) {
         alert(`Pengguna ${created.username} berhasil dibuat!`);
         setNewUserUsername('');
         setNewUserRole('kasir');
+        setNewUserPassword('');
         setIsUserModalOpen(false);
         await loadUsersData();
       }
@@ -885,6 +893,7 @@ export default function Home() {
     setEditingUser(user);
     setEditUserUsername(user.username);
     setEditUserRole(user.role);
+    setEditUserPassword('');
   };
 
   const handleSaveEditUser = async (e: React.FormEvent) => {
@@ -898,6 +907,11 @@ export default function Home() {
 
     if (!editUserUsername.trim()) {
       alert('Username tidak boleh kosong');
+      return;
+    }
+
+    if (editUserPassword && editUserPassword.length < 6) {
+      alert('Kata sandi baru harus minimal 6 karakter');
       return;
     }
 
@@ -919,12 +933,17 @@ export default function Home() {
       });
 
       if (success) {
+        if (editUserPassword.trim()) {
+          const hashed = await hashPassword(editUserPassword);
+          await updateUserPassword(editingUser.id, hashed);
+        }
         if (editingUser.id === currentUser.id) {
           const updatedCurrentUser = { ...currentUser, username: editUserUsername.trim().toLowerCase(), role: editUserRole };
           setCurrentUser(updatedCurrentUser);
           localStorage.setItem('tb_current_session', JSON.stringify(updatedCurrentUser));
         }
         setEditingUser(null);
+        setEditUserPassword('');
         await loadUsersData();
       }
     } catch (err: any) {
@@ -3446,6 +3465,18 @@ export default function Home() {
                             </select>
                           </div>
 
+                          {/* Password */}
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Kata Sandi (Password)</label>
+                            <input
+                              type="password"
+                              placeholder="Minimal 6 karakter (kosongkan untuk default username)"
+                              value={newUserPassword}
+                              onChange={(e) => setNewUserPassword(e.target.value)}
+                              className="w-full bg-[#0d1222] border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500/40 focus:ring-2 focus:ring-emerald-500/10 transition-all font-medium"
+                            />
+                          </div>
+
                           {userError && (
                             <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-[10px] text-rose-400 font-medium">
                               {userError}
@@ -4250,6 +4281,17 @@ export default function Home() {
                     <option value="manager">MANAGER</option>
                     <option value="owner">OWNER (PEMILIK)</option>
                   </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 mb-1.5">Kata Sandi Baru (Password)</label>
+                  <input
+                    type="password"
+                    placeholder="Kosongkan jika tidak ingin mengubah"
+                    value={editUserPassword}
+                    onChange={(e) => setEditUserPassword(e.target.value)}
+                    className="w-full bg-[#0d1222] border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500/40"
+                  />
                 </div>
 
                 <div className="flex items-center justify-end gap-2 pt-2">

@@ -189,10 +189,12 @@ export const getUsers = async (): Promise<User[]> => {
 
 export const createUser = async (
   username: string,
-  role: 'kasir' | 'manager' | 'owner'
+  role: 'kasir' | 'manager' | 'owner',
+  password?: string
 ): Promise<User> => {
   const cleanUsername = username.trim().toLowerCase();
-  const passwordHash = await hashPassword(cleanUsername);
+  const rawPassword = password && password.trim() ? password : cleanUsername;
+  const passwordHash = await hashPassword(rawPassword);
   const { data, error } = await supabase
     .from('users')
     .insert([{ username: cleanUsername, role, password: passwordHash }])

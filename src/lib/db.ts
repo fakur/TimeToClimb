@@ -165,7 +165,7 @@ export const loginUser = async (username: string, password?: string): Promise<Us
     .from('users')
     .select('*')
     .eq('username', cleanUsername)
-    .neq('datastatus', 'DELETE')
+    .or('datastatus.is.null,datastatus.neq.DELETE')
     .maybeSingle();
   if (error || !data) return null;
   
@@ -189,7 +189,7 @@ export const getUsers = async (): Promise<User[]> => {
   const { data, error } = await supabase
     .from('users')
     .select('*')
-    .neq('datastatus', 'DELETE')
+    .or('datastatus.is.null,datastatus.neq.DELETE')
     .order('id', { ascending: true });
   if (error) {
     console.error('Supabase getUsers error:', error);
@@ -265,7 +265,7 @@ export const getCategories = async (): Promise<KategoriTransaksi[]> => {
   const { data, error } = await supabase
     .from('kategori_transaksi')
     .select('*')
-    .neq('datastatus', 'DELETE')
+    .or('datastatus.is.null,datastatus.neq.DELETE')
     .order('id', { ascending: true });
   if (error) {
     console.error('Supabase getCategories error:', error);
@@ -345,7 +345,7 @@ export const getTransactions = async (): Promise<TransaksiHarian[]> => {
       master:master_transaksi(*, user:users!master_transaksi_user_id_fkey(*)),
       kategori:kategori_transaksi(*)
     `)
-    .neq('datastatus', 'DELETE')
+    .or('datastatus.is.null,datastatus.neq.DELETE')
     .order('id', { ascending: false });
   
   if (error) {
@@ -769,7 +769,7 @@ export const getTrxDetails = async (): Promise<TrxDtl[]> => {
       *,
       kategori:kategori_transaksi(*)
     `)
-    .neq('datastatus', 'DELETE')
+    .or('datastatus.is.null,datastatus.neq.DELETE')
     .order('tanggal', { ascending: false })
     .order('id', { ascending: false });
 
@@ -877,7 +877,7 @@ export const recalculateTrxDtlBalances = async (): Promise<void> => {
   const { data: rows, error } = await supabase
     .from('trx_dtl')
     .select('*, kategori:kategori_transaksi(tipe)')
-    .neq('datastatus', 'DELETE')
+    .or('datastatus.is.null,datastatus.neq.DELETE')
     .order('tanggal', { ascending: true })
     .order('id', { ascending: true });
 
@@ -915,7 +915,7 @@ export const getStockItems = async (): Promise<MstStock[]> => {
   const { data, error } = await supabase
     .from('mst_stocks')
     .select('*')
-    .neq('datastatus', 'DELETE')
+    .or('datastatus.is.null,datastatus.neq.DELETE')
     .order('id', { ascending: true });
   if (error) {
     console.error('Supabase getStockItems error:', error);
@@ -994,7 +994,7 @@ export const getStockOpnames = async (): Promise<StockOpname[]> => {
         item:mst_stocks(*)
       )
     `)
-    .neq('datastatus', 'DELETE')
+    .or('datastatus.is.null,datastatus.neq.DELETE')
     .order('tanggal', { ascending: false })
     .order('jam', { ascending: false });
 

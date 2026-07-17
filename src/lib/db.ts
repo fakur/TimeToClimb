@@ -141,6 +141,15 @@ export const isSupabaseConfigured = (): boolean => {
 };
 
 // 1. User & Auth
+export const hashPassword = async (password: string): Promise<string> => {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const cryptoObj = typeof window !== 'undefined' && window.crypto ? window.crypto : require('crypto').webcrypto;
+  const hashBuffer = await cryptoObj.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+};
+
 export const loginUser = async (username: string, password?: string): Promise<User | null> => {
   const cleanUsername = username.trim().toLowerCase();
   const { data, error } = await supabase
@@ -150,8 +159,12 @@ export const loginUser = async (username: string, password?: string): Promise<Us
     .maybeSingle();
   if (error || !data) return null;
   
-  if (password !== undefined && data.password !== password) {
-    return null;
+  if (password !== undefined) {
+    const hashed = await hashPassword(password);
+    // Allow fallback to plain text password for backward compatibility during transition
+    if (data.password !== password && data.password !== hashed) {
+      return null;
+    }
   }
 
   return {
@@ -179,9 +192,10 @@ export const createUser = async (
   role: 'kasir' | 'manager' | 'owner'
 ): Promise<User> => {
   const cleanUsername = username.trim().toLowerCase();
+  const passwordHash = await hashPassword(cleanUsername);
   const { data, error } = await supabase
     .from('users')
-    .insert([{ username: cleanUsername, role, password: cleanUsername }])
+    .insert([{ username: cleanUsername, role, password: passwordHash }])
     .select()
     .single();
 
@@ -190,6 +204,18 @@ export const createUser = async (
     throw new Error(error.message);
   }
   return data;
+};
+
+export const updateUserPassword = async (id: number, passwordHash: string): Promise<boolean> => {
+  const { error } = await supabase
+    .from('users')
+    .update({ password: passwordHash })
+    .eq('id', id);
+  if (error) {
+    console.error('Supabase updateUserPassword error:', error);
+    throw new Error(error.message);
+  }
+  return true;
 };
 
 export const updateUser = async (

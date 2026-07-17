@@ -8,6 +8,8 @@ import {
   getUsers,
   createUser,
   updateUser,
+  updateUserPassword,
+  hashPassword,
   deleteUser,
   getCategories,
   createCategory,
@@ -110,6 +112,13 @@ export default function Home() {
   const [confirmTitle, setConfirmTitle] = useState<string>('');
   const [confirmMessage, setConfirmMessage] = useState<string>('');
   const [onConfirmAction, setOnConfirmAction] = useState<(() => void | Promise<void>) | null>(null);
+
+  // Change Password Modal States
+  const [isChangePasswordModalOpen, setIsChangePasswordModalOpen] = useState<boolean>(false);
+  const [newPassword, setNewPassword] = useState<string>('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState<string>('');
+  const [changePasswordError, setChangePasswordError] = useState<string>('');
+  const [changePasswordSuccess, setChangePasswordSuccess] = useState<string>('');
 
   // Filter States (Transaksi - trx_dtl)
   const [filterDtlStart, setFilterDtlStart] = useState<string>('');
@@ -498,6 +507,53 @@ export default function Home() {
   const handleLogout = () => {
     setCurrentUser(null);
     localStorage.removeItem('tb_current_session');
+  };
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setChangePasswordError('');
+    setChangePasswordSuccess('');
+
+    if (!newPassword || !confirmNewPassword) {
+      setChangePasswordError('Semua field kata sandi baru harus diisi');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      setChangePasswordError('Kata sandi baru harus minimal 6 karakter');
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      setChangePasswordError('Konfirmasi kata sandi baru tidak cocok');
+      return;
+    }
+
+    if (!currentUser) {
+      setChangePasswordError('Anda belum masuk ke sistem');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const hashed = await hashPassword(newPassword);
+      const success = await updateUserPassword(currentUser.id, hashed);
+      if (success) {
+        setChangePasswordSuccess('Kata sandi berhasil diperbarui!');
+        setNewPassword('');
+        setConfirmNewPassword('');
+        setTimeout(() => {
+          setIsChangePasswordModalOpen(false);
+          setChangePasswordSuccess('');
+        }, 1500);
+      } else {
+        setChangePasswordError('Gagal memperbarui kata sandi. Silakan coba lagi.');
+      }
+    } catch (err: any) {
+      setChangePasswordError(err.message || 'Terjadi kesalahan sistem.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Dev Quick-Switch Role
@@ -1546,32 +1602,7 @@ export default function Home() {
                 </button>
               </form>
 
-              <div className="mt-8 border-t border-slate-800/80 pt-6">
-                <span className="block text-center text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Akun Simulasi Demo</span>
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    onClick={() => { setUsernameInput('budi'); setPasswordInput('budi'); }}
-                    className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-emerald-500/30 text-center transition-all group"
-                  >
-                    <span className="block font-bold text-xs text-emerald-400 group-hover:text-emerald-300">budi</span>
-                    <span className="block text-[8px] text-slate-500 uppercase tracking-wider mt-0.5">Kasir</span>
-                  </button>
-                  <button
-                    onClick={() => { setUsernameInput('rudi'); setPasswordInput('rudi'); }}
-                    className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-indigo-500/30 text-center transition-all group"
-                  >
-                    <span className="block font-bold text-xs text-indigo-400 group-hover:text-indigo-300">rudi</span>
-                    <span className="block text-[8px] text-slate-500 uppercase tracking-wider mt-0.5">Manager</span>
-                  </button>
-                  <button
-                    onClick={() => { setUsernameInput('anton'); setPasswordInput('anton'); }}
-                    className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-violet-500/30 text-center transition-all group"
-                  >
-                    <span className="block font-bold text-xs text-violet-400 group-hover:text-violet-300">anton</span>
-                    <span className="block text-[8px] text-slate-500 uppercase tracking-wider mt-0.5">Owner</span>
-                  </button>
-                </div>
-              </div>
+
             </div>
           </div>
         ) : (
@@ -1607,6 +1638,16 @@ export default function Home() {
                       {currentUser.role}
                     </span>
                   </div>
+
+                  <button
+                    onClick={() => setIsChangePasswordModalOpen(true)}
+                    className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-emerald-400 hover:border-emerald-500/20 transition-all"
+                    title="Ubah Kata Sandi"
+                  >
+                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                    </svg>
+                  </button>
 
                   <button
                     onClick={handleLogout}
@@ -4225,6 +4266,82 @@ export default function Home() {
                     className="px-4 py-2 bg-emerald-500 text-slate-950 text-xs font-bold rounded-xl hover:bg-emerald-400 transition-all"
                   >
                     Simpan Perubahan
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+        {/* CHANGE PASSWORD MODAL */}
+        {isChangePasswordModalOpen && (
+          <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+            <div className="w-full max-w-md bg-[#090d16] border border-slate-800 rounded-3xl p-8 shadow-2xl relative overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+              <div className="absolute -top-10 -right-10 w-32 h-32 bg-emerald-500/5 rounded-full blur-2xl"></div>
+
+              <div className="text-center mb-6">
+                <h3 className="text-lg font-black text-white">Ubah Kata Sandi</h3>
+                <p className="text-xs text-slate-400 mt-1">Ubah kata sandi akun Anda untuk keamanan tambahan</p>
+              </div>
+
+              <form onSubmit={handleChangePassword} className="space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Kata Sandi Baru</label>
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Minimal 6 karakter"
+                    className="w-full bg-[#0d1222] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500/40 focus:ring-2 focus:ring-emerald-500/10 transition-all font-medium"
+                    minLength={6}
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Konfirmasi Kata Sandi Baru</label>
+                  <input
+                    type="password"
+                    value={confirmNewPassword}
+                    onChange={(e) => setConfirmNewPassword(e.target.value)}
+                    placeholder="Ulangi kata sandi baru"
+                    className="w-full bg-[#0d1222] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500/40 focus:ring-2 focus:ring-emerald-500/10 transition-all font-medium"
+                    minLength={6}
+                    required
+                  />
+                </div>
+
+                {changePasswordError && (
+                  <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-400 leading-relaxed">
+                    {changePasswordError}
+                  </div>
+                )}
+
+                {changePasswordSuccess && (
+                  <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs text-emerald-400 leading-relaxed">
+                    {changePasswordSuccess}
+                  </div>
+                )}
+
+                <div className="flex items-center gap-3 mt-6 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsChangePasswordModalOpen(false);
+                      setNewPassword('');
+                      setConfirmNewPassword('');
+                      setChangePasswordError('');
+                      setChangePasswordSuccess('');
+                    }}
+                    className="w-1/2 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl transition-all active:scale-95 text-xs text-center"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-1/2 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-bold rounded-xl hover:shadow-lg hover:shadow-emerald-950/20 hover:from-emerald-400 hover:to-teal-400 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-xs"
+                  >
+                    {loading ? 'Menyimpan...' : 'Simpan Sandi'}
                   </button>
                 </div>
               </form>

@@ -49,6 +49,7 @@ export default function Home() {
   // Authentication State
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [usernameInput, setUsernameInput] = useState('');
+  const [passwordInput, setPasswordInput] = useState('');
   const [loginError, setLoginError] = useState('');
 
   // Main Data States
@@ -478,14 +479,19 @@ export default function Home() {
       setLoginError('Nama pengguna harus diisi');
       return;
     }
+    if (!passwordInput.trim()) {
+      setLoginError('Kata sandi harus diisi');
+      return;
+    }
 
-    const user = await loginUser(usernameInput);
+    const user = await loginUser(usernameInput, passwordInput);
     if (user) {
       setCurrentUser(user);
       localStorage.setItem('tb_current_session', JSON.stringify(user));
       setUsernameInput('');
+      setPasswordInput('');
     } else {
-      setLoginError('Pengguna tidak ditemukan. Silakan gunakan budi, rudi, atau anton.');
+      setLoginError('Nama pengguna atau kata sandi salah.');
     }
   };
 
@@ -1486,51 +1492,6 @@ export default function Home() {
         <div className="absolute top-0 right-10 w-[500px] h-[500px] bg-emerald-500/5 rounded-full blur-3xl -z-10 animate-pulse"></div>
         <div className="absolute bottom-20 left-10 w-[500px] h-[500px] bg-violet-600/5 rounded-full blur-3xl -z-10 animate-pulse"></div>
 
-        {/* Developer Bar / Info panel */}
-        <div className="bg-[#0b101f] border-b border-slate-800/80 px-6 py-2">
-          <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-            <div className="flex items-center gap-2">
-              <span className={`w-2 h-2 rounded-full ${dbMode === 'Supabase (Online)' ? 'bg-emerald-400' : 'bg-rose-500 animate-pulse'}`}></span>
-              <span className="text-slate-400">Database Koneksi:</span>
-              <span className="font-semibold text-white bg-slate-800 px-2 py-0.5 rounded border border-slate-700">
-                {dbMode}
-              </span>
-            </div>
-
-            {currentUser && (
-              <div className="flex items-center gap-2">
-                <span className="text-slate-400">Simulasi Peran (RBAC):</span>
-                <button
-                  onClick={() => handleDevRoleSwitch('kasir')}
-                  className={`px-2 py-0.5 rounded font-bold uppercase transition-all ${currentUser.role === 'kasir'
-                      ? 'bg-emerald-500 text-slate-950 scale-105'
-                      : 'bg-slate-800 text-slate-400 hover:text-white'
-                    }`}
-                >
-                  Kasir
-                </button>
-                <button
-                  onClick={() => handleDevRoleSwitch('manager')}
-                  className={`px-2 py-0.5 rounded font-bold uppercase transition-all ${currentUser.role === 'manager'
-                      ? 'bg-indigo-500 text-slate-950 scale-105'
-                      : 'bg-slate-800 text-slate-400 hover:text-white'
-                    }`}
-                >
-                  Manager
-                </button>
-                <button
-                  onClick={() => handleDevRoleSwitch('owner')}
-                  className={`px-2 py-0.5 rounded font-bold uppercase transition-all ${currentUser.role === 'owner'
-                      ? 'bg-violet-500 text-white scale-105'
-                      : 'bg-slate-800 text-slate-400 hover:text-white'
-                    }`}
-                >
-                  Owner
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
 
         {/* LOGIN OVERLAY GATE */}
         {!currentUser ? (
@@ -1555,7 +1516,18 @@ export default function Home() {
                     type="text"
                     value={usernameInput}
                     onChange={(e) => setUsernameInput(e.target.value)}
-                    placeholder="Masukkan budi, rudi, atau anton"
+                    placeholder="Masukkan nama pengguna"
+                    className="w-full bg-[#0d1222] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500/40 focus:ring-2 focus:ring-emerald-500/10 transition-all font-medium"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Kata Sandi (Password)</label>
+                  <input
+                    type="password"
+                    value={passwordInput}
+                    onChange={(e) => setPasswordInput(e.target.value)}
+                    placeholder="Masukkan kata sandi"
                     className="w-full bg-[#0d1222] border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500/40 focus:ring-2 focus:ring-emerald-500/10 transition-all font-medium"
                   />
                 </div>
@@ -1578,21 +1550,21 @@ export default function Home() {
                 <span className="block text-center text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3">Akun Simulasi Demo</span>
                 <div className="grid grid-cols-3 gap-2">
                   <button
-                    onClick={() => { setUsernameInput('budi'); }}
+                    onClick={() => { setUsernameInput('budi'); setPasswordInput('budi'); }}
                     className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-emerald-500/30 text-center transition-all group"
                   >
                     <span className="block font-bold text-xs text-emerald-400 group-hover:text-emerald-300">budi</span>
                     <span className="block text-[8px] text-slate-500 uppercase tracking-wider mt-0.5">Kasir</span>
                   </button>
                   <button
-                    onClick={() => { setUsernameInput('rudi'); }}
+                    onClick={() => { setUsernameInput('rudi'); setPasswordInput('rudi'); }}
                     className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-indigo-500/30 text-center transition-all group"
                   >
                     <span className="block font-bold text-xs text-indigo-400 group-hover:text-indigo-300">rudi</span>
                     <span className="block text-[8px] text-slate-500 uppercase tracking-wider mt-0.5">Manager</span>
                   </button>
                   <button
-                    onClick={() => { setUsernameInput('anton'); }}
+                    onClick={() => { setUsernameInput('anton'); setPasswordInput('anton'); }}
                     className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-violet-500/30 text-center transition-all group"
                   >
                     <span className="block font-bold text-xs text-violet-400 group-hover:text-violet-300">anton</span>

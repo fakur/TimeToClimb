@@ -141,7 +141,7 @@ export const isSupabaseConfigured = (): boolean => {
 };
 
 // 1. User & Auth
-export const loginUser = async (username: string): Promise<User | null> => {
+export const loginUser = async (username: string, password?: string): Promise<User | null> => {
   const cleanUsername = username.trim().toLowerCase();
   const { data, error } = await supabase
     .from('users')
@@ -149,6 +149,11 @@ export const loginUser = async (username: string): Promise<User | null> => {
     .eq('username', cleanUsername)
     .maybeSingle();
   if (error || !data) return null;
+  
+  if (password !== undefined && data.password !== password) {
+    return null;
+  }
+
   return {
     id: data.id,
     username: data.username,

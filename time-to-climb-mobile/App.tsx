@@ -71,6 +71,7 @@ export default function App() {
 
   // Connection Indicator
   const [isConnected, setIsConnected] = useState(true);
+  const [currentDateString, setCurrentDateString] = useState('');
 
   // Global Data States
   const [usersList, setUsersList] = useState<User[]>([]);
@@ -137,6 +138,16 @@ export default function App() {
       }
     };
     checkSession();
+
+    // Format current date in Indonesian format
+    const options: Intl.DateTimeFormatOptions = {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    };
+    const formatter = new Intl.DateTimeFormat('id-ID', options);
+    setCurrentDateString(formatter.format(new Date()));
   }, []);
 
   // Fetch all basic data once authenticated
@@ -1022,6 +1033,11 @@ export default function App() {
         <View>
           <Text style={styles.appHeaderBrand}>TIME TO CLIMB</Text>
           <Text style={styles.appHeaderRole}>{currentUser.username} ({currentUser.role.toUpperCase()})</Text>
+          {currentDateString ? (
+            <Text style={{ fontSize: 10, color: '#10b981', marginTop: 2, fontWeight: '600' }}>
+              {currentDateString}
+            </Text>
+          ) : null}
         </View>
         <TouchableOpacity
           style={styles.reloadBtn}

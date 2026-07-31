@@ -53,6 +53,7 @@ export default function Home() {
   const [usernameInput, setUsernameInput] = useState('');
   const [passwordInput, setPasswordInput] = useState('');
   const [loginError, setLoginError] = useState('');
+  const [currentDateString, setCurrentDateString] = useState('');
 
   // Main Data States
   const [categories, setCategories] = useState<KategoriTransaksi[]>([]);
@@ -207,6 +208,16 @@ export default function Home() {
     if (savedUser) {
       setCurrentUser(JSON.parse(savedUser));
     }
+
+    // Format current date in Indonesian format
+    const options: Intl.DateTimeFormatOptions = {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    };
+    const formatter = new Intl.DateTimeFormat('id-ID', options);
+    setCurrentDateString(formatter.format(new Date()));
   }, []);
 
   // Fetch user list (Loaded for everyone to populate dropdowns)
@@ -1640,9 +1651,26 @@ export default function Home() {
                   </div>
                   <div>
                     <h1 className="text-lg font-black tracking-tight text-white">TIME TO CLIMB</h1>
-                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Aplikasi Keuangan Harian</p>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:gap-2">
+                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Aplikasi Keuangan Harian</p>
+                      {currentDateString && (
+                        <span className="text-[9px] text-emerald-400/90 font-semibold sm:hidden mt-0.5">
+                          • {currentDateString}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
+
+                {/* Hari & Tanggal (Desktop/Tablet) */}
+                {currentDateString && (
+                  <div className="hidden sm:flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-slate-900/60 border border-slate-800/80 text-slate-400 text-xs shadow-inner animate-fade-in">
+                    <svg className="w-3.5 h-3.5 text-emerald-400 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <span className="font-semibold text-slate-200 tracking-wide">{currentDateString}</span>
+                  </div>
+                )}
 
                 {/* User Session Info */}
                 <div className="flex items-center gap-4">

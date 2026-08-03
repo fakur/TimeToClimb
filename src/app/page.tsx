@@ -589,7 +589,7 @@ export default function Home() {
     setTxError('');
     setTxSuccess('');
 
-    const nominalNum = parseFloat(txNominal);
+    const nominalNum = parseFloat(txNominal.replace(/\D/g, ''));
     if (isNaN(nominalNum) || nominalNum <= 0) {
       setTxError('Nominal harus berupa angka valid di atas 0');
       return;
@@ -613,7 +613,7 @@ export default function Home() {
       setLoading(true);
 
       // Auto-save session info (saldo awal) for the active shift
-      const valSaldo = parseFloat(txSaldoAwal) || 0;
+      const valSaldo = parseFloat(txSaldoAwal.replace(/\D/g, '')) || 0;
       await saveSessionInfo(finalUserId, finalDate, txShift, valSaldo, currentUser?.id || 1);
 
       const newTx = await createTransaction(
@@ -759,7 +759,7 @@ export default function Home() {
     setDtlError('');
     setDtlSuccess('');
 
-    const nominalNum = parseFloat(dtlNominal);
+    const nominalNum = parseFloat(dtlNominal.replace(/\D/g, ''));
     if (isNaN(nominalNum) || nominalNum <= 0) {
       setDtlError('Nominal harus berupa angka valid di atas 0');
       return;
@@ -818,7 +818,7 @@ export default function Home() {
     setEditingDtl(item);
     setDtlTanggal(item.tanggal);
     setDtlCategory(String(item.kategori_id));
-    setDtlNominal(String(item.nominal));
+    setDtlNominal(formatInputRibuan(item.nominal));
     setDtlKeterangan(item.keterangan || '');
     setDtlError('');
     setDtlSuccess('');
@@ -1371,7 +1371,7 @@ export default function Home() {
       return;
     }
     setEditingTx(tx);
-    setEditNominal(String(tx.nominal));
+    setEditNominal(formatInputRibuan(tx.nominal));
     setEditDate(tx.tanggal);
     setEditShift(tx.shift || 'pagi');
     setEditKeterangan(tx.keterangan || '');
@@ -1383,7 +1383,7 @@ export default function Home() {
     e.preventDefault();
     if (!editingTx) return;
 
-    const nominalNum = parseFloat(editNominal);
+    const nominalNum = parseFloat(editNominal.replace(/\D/g, ''));
     if (isNaN(nominalNum) || nominalNum <= 0) {
       alert('Nominal harus valid');
       return;
@@ -1564,6 +1564,14 @@ export default function Home() {
       currency: 'IDR',
       minimumFractionDigits: 0
     }).format(num);
+  };
+
+  // Helper to format input as thousands (e.g. 1000 -> 1.000)
+  const formatInputRibuan = (value: string | number): string => {
+    const str = String(value);
+    const clean = str.replace(/\D/g, '');
+    if (!clean) return '';
+    return new Intl.NumberFormat('id-ID').format(parseInt(clean, 10));
   };
 
   // Color palette list for expense chart
@@ -2032,7 +2040,38 @@ export default function Home() {
                       <span className="w-1.5 h-3 bg-emerald-500 rounded animate-pulse"></span>
                       <h3 className="text-xs font-bold text-white uppercase tracking-wider font-mono">I. Informasi Sesi Shift Kerja</h3>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className={`grid grid-cols-1 gap-4 ${currentUser?.role === 'owner' ? 'md:grid-cols-4' : 'md:grid-cols-2'}`}>
+                      {/* Tanggal Transaksi (Owner Only) */}
+                      {currentUser?.role === 'owner' && (
+                        <div>
+                          <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Tanggal Transaksi</label>
+                          <input
+                            type="date"
+                            value={txDate}
+                            onChange={(e) => setTxDate(e.target.value)}
+                            className="w-full bg-[#0d1222] border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500/40 focus:ring-2 focus:ring-emerald-500/10 transition-all font-medium font-mono"
+                          />
+                        </div>
+                      )}
+
+                      {/* Petugas / Kasir (Owner Only) */}
+                      {currentUser?.role === 'owner' && (
+                        <div>
+                          <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Petugas / Kasir</label>
+                          <select
+                            value={txUserId}
+                            onChange={(e) => setTxUserId(e.target.value)}
+                            className="w-full bg-[#0d1222] border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500/40 focus:ring-2 focus:ring-emerald-500/10 transition-all font-medium"
+                          >
+                            {users.map((u) => (
+                              <option key={u.id} value={u.id} className="bg-[#0a0f1d] text-slate-350">
+                                {u.username} ({u.role})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
                       {/* Shift Kerja */}
                       <div>
                         <label className="block text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Shift Kerja</label>
@@ -2058,9 +2097,9 @@ export default function Home() {
                             Rp
                           </div>
                           <input
-                            type="number"
+                            type="text"
                             placeholder="0"
-                            value={txSaldoAwal}
+                            value={formatInputRibuan(txSaldoAwal)}
                             readOnly
                             className="w-full bg-[#0d1222]/50 border border-slate-800 rounded-xl pl-10 pr-4 py-2.5 text-xs text-slate-400 cursor-not-allowed font-medium"
                           />
@@ -2085,9 +2124,18 @@ export default function Home() {
                         </button>
 
                         {/* Header */}
-                        <div className="flex items-center gap-2 border-b border-slate-800 pb-3 mb-6">
-                          <span className="w-1.5 h-3 bg-emerald-500 rounded animate-pulse"></span>
-                          <h3 className="text-base font-bold text-white">Formulir Pencatatan Keuangan</h3>
+                        <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+                          <div className="flex items-center gap-2">
+                            <span className="w-1.5 h-3 bg-emerald-500 rounded animate-pulse"></span>
+                            <h3 className="text-base font-bold text-white">Formulir Pencatatan Keuangan</h3>
+                          </div>
+                        </div>
+
+                        {/* Sesi Info */}
+                        <div className="mb-4 p-3 bg-slate-900/40 rounded-xl border border-slate-800/60 text-xs text-slate-400 flex flex-wrap gap-x-4 gap-y-1 font-medium">
+                          <div>Sesi: <span className="text-emerald-400 font-bold font-mono">{txDate}</span></div>
+                          <div>Shift: <span className="text-emerald-400 font-bold capitalize">{txShift}</span></div>
+                          <div>Petugas: <span className="text-emerald-400 font-bold capitalize">{users.find(u => String(u.id) === txUserId)?.username || 'staf'}</span></div>
                         </div>
 
                         <form onSubmit={handleCreateTx} className="space-y-4">
@@ -2132,10 +2180,10 @@ export default function Home() {
                                     Rp
                                   </div>
                                   <input
-                                    type="number"
-                                    placeholder="Contoh: 150000"
+                                    type="text"
+                                    placeholder="Contoh: 150.000"
                                     value={txNominal}
-                                    onChange={(e) => setTxNominal(e.target.value)}
+                                    onChange={(e) => setTxNominal(formatInputRibuan(e.target.value))}
                                     className="w-full bg-[#0d1222] border border-slate-800 rounded-lg pl-8 pr-3 py-2 text-xs text-white focus:outline-none"
                                   />
                                 </div>
@@ -2729,10 +2777,10 @@ export default function Home() {
                             <div>
                               <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5">Nominal</label>
                               <input
-                                type="number"
-                                placeholder="Contoh: 50000"
+                                type="text"
+                                placeholder="Contoh: 50.000"
                                 value={dtlNominal}
-                                onChange={(e) => setDtlNominal(e.target.value)}
+                                onChange={(e) => setDtlNominal(formatInputRibuan(e.target.value))}
                                 className="w-full bg-[#0d1222] border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500/40 focus:ring-2 focus:ring-emerald-500/10 transition-all font-medium"
                               />
                             </div>
@@ -4242,9 +4290,9 @@ export default function Home() {
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 mb-1.5">Nominal</label>
                   <input
-                    type="number"
+                    type="text"
                     value={editNominal}
-                    onChange={(e) => setEditNominal(e.target.value)}
+                    onChange={(e) => setEditNominal(formatInputRibuan(e.target.value))}
                     className="w-full bg-[#0d1222] border border-slate-800 rounded-xl px-3 py-2 text-xs text-white"
                   />
                 </div>

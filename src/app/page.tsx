@@ -298,7 +298,7 @@ export default function Home() {
       setTxUserId(String(currentUser.id));
       setDtlTanggal(todayStr);
     }
-  }, [currentUser, activeTab]);
+  }, [currentUser]);
 
   // Auto-reload categories when entering category tab
   useEffect(() => {
@@ -1737,7 +1737,12 @@ export default function Home() {
                 </button>
 
                 <button
-                  onClick={() => { setActiveTab('transaction'); setActiveDropdown(null); }}
+                  onClick={() => {
+                    setTxDate(todayStr);
+                    setTxUserId(String(currentUser?.id));
+                    setActiveTab('transaction');
+                    setActiveDropdown(null);
+                  }}
                   className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all ${activeTab === 'transaction'
                       ? 'bg-slate-800 text-white shadow-sm'
                       : 'text-slate-400 hover:text-slate-200'
@@ -1746,15 +1751,17 @@ export default function Home() {
                   Input Closing
                 </button>
 
-                <button
-                  onClick={() => { setActiveTab('transaction_dtl'); setActiveDropdown(null); }}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all ${activeTab === 'transaction_dtl'
-                      ? 'bg-slate-800 text-white shadow-sm'
-                      : 'text-slate-400 hover:text-slate-200'
-                    }`}
-                >
-                  Transaksi
-                </button>
+                {currentUser?.role === 'owner' && (
+                  <button
+                    onClick={() => { setActiveTab('transaction_dtl'); setActiveDropdown(null); }}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all ${activeTab === 'transaction_dtl'
+                        ? 'bg-slate-800 text-white shadow-sm'
+                        : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                  >
+                    Transaksi
+                  </button>
+                )}
 
                 <button
                   onClick={() => { setActiveTab('stock_opname'); setActiveDropdown(null); }}
@@ -1959,7 +1966,11 @@ export default function Home() {
                           Gunakan tombol di bawah untuk mencatat kas masuk/keluar sekarang.
                         </p>
                         <button
-                          onClick={() => setActiveTab('transaction')}
+                          onClick={() => {
+                            setTxDate(todayStr);
+                            setTxUserId(String(currentUser?.id));
+                            setActiveTab('transaction');
+                          }}
                           className="w-full py-2.5 bg-slate-800 hover:bg-slate-700 text-white font-semibold rounded-xl text-xs transition-all text-center block"
                         >
                           Mulai Mencatat
@@ -2707,7 +2718,7 @@ export default function Home() {
               )}
 
               {/* TAB: TRANSAKSI MANDIRI (trx_dtl) */}
-              {activeTab === 'transaction_dtl' && (
+              {activeTab === 'transaction_dtl' && currentUser?.role === 'owner' && (
                 <div className="space-y-8 animate-in fade-in duration-200">
 
                   {/* 1. MODAL POP-UP UNTUK INPUT-EDIT DATA */}

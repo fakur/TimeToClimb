@@ -56,3 +56,13 @@ body {
   border-color: rgba(16, 185, 129, 0.4);
   box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
 }
+
+/* Linear Shimmer Progress Bar Animation */
+@keyframes shimmer-progress {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+.animate-progress-bar {
+  width: 50%;
+  animation: shimmer-progress 1.5s infinite linear;
+}

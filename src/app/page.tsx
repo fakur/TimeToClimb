@@ -28,6 +28,7 @@ import {
   createTrxDetail,
   updateTrxDetail,
   deleteTrxDetail,
+  recalculateTrxDtlBalances,
   getStockItems,
   createStockItem,
   updateStockItem,
@@ -127,6 +128,19 @@ export default function Home() {
   const [showEditUserPassword, setShowEditUserPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
+
+  // Recalculate State
+  const [isRecalculating, setIsRecalculating] = useState(false);
+
+  // Pagination States
+  const [currentPageActiveTx, setCurrentPageActiveTx] = useState(1);
+  const [currentPageHistory, setCurrentPageHistory] = useState(1);
+  const [currentPageTrxDtl, setCurrentPageTrxDtl] = useState(1);
+  const [currentPageCategoriesPem, setCurrentPageCategoriesPem] = useState(1);
+  const [currentPageCategoriesPen, setCurrentPageCategoriesPen] = useState(1);
+  const [currentPageUsers, setCurrentPageUsers] = useState(1);
+  const [currentPageStocks, setCurrentPageStocks] = useState(1);
+  const [currentPageOpnames, setCurrentPageOpnames] = useState(1);
 
   // Filter States (Transaksi - trx_dtl)
   const [filterDtlStart, setFilterDtlStart] = useState<string>('');
@@ -387,7 +401,22 @@ export default function Home() {
       setTxShift('pagi');
     }
   }, [currentUser, txShift]);
+  // Reset pagination states when filters or tab changes
+  useEffect(() => {
+    setCurrentPageTrxDtl(1);
+  }, [filterDtlCategory, filterDtlStart, filterDtlEnd]);
 
+  useEffect(() => {
+    setCurrentPageHistory(1);
+  }, [filterCategory, filterType, searchQuery]);
+
+  useEffect(() => {
+    setCurrentPageOpnames(1);
+  }, [filterOpnameStart, filterOpnameEnd]);
+
+  useEffect(() => {
+    setCurrentPageActiveTx(1);
+  }, [txUserId, txDate, txShift]);
   // Sesi Shift Helper Functions (Saldo Awal - Database backed)
   const loadSessionInfo = async (userId: number, dateStr: string, shift: 'pagi' | 'siang' | 'malam' | 'operational') => {
     try {
@@ -861,6 +890,22 @@ export default function Home() {
         setLoading(false);
       }
     });
+  };
+
+  const handleRecalculateBalances = async () => {
+    try {
+      setIsRecalculating(true);
+      setLoading(true);
+      await recalculateTrxDtlBalances();
+      const fetchedDetails = await getTrxDetails();
+      setTrxDetails(fetchedDetails);
+      alert('Perhitungan ulang saldo akhir berhasil diselesaikan!');
+    } catch (err: any) {
+      alert(`Gagal menghitung ulang saldo: ${err.message}`);
+    } finally {
+      setIsRecalculating(false);
+      setLoading(false);
+    }
   };
 
   // --- USER CRUD HANDLERS (Owner Only) ---
@@ -1581,6 +1626,38 @@ export default function Home() {
     return new Intl.NumberFormat('id-ID').format(parseInt(clean, 10));
   };
 
+  // Reusable pagination rendering helper
+  const renderPagination = (
+    currentPage: number,
+    totalPages: number,
+    onPageChange: (page: number) => void
+  ) => {
+    if (totalPages <= 1) return null;
+    return (
+      <div className="flex items-center justify-between border-t border-slate-800/60 pt-4 mt-4 select-none shrink-0">
+        <button
+          type="button"
+          disabled={currentPage === 1}
+          onClick={() => onPageChange(currentPage - 1)}
+          className="px-3 py-1.5 text-[10px] uppercase tracking-wider font-bold bg-[#0d1222] border border-slate-800 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed rounded-xl hover:bg-slate-800 transition-all"
+        >
+          Sebelumnya
+        </button>
+        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest font-mono">
+          Halaman {currentPage} dari {totalPages}
+        </span>
+        <button
+          type="button"
+          disabled={currentPage === totalPages}
+          onClick={() => onPageChange(currentPage + 1)}
+          className="px-3 py-1.5 text-[10px] uppercase tracking-wider font-bold bg-[#0d1222] border border-slate-800 text-slate-300 disabled:opacity-30 disabled:cursor-not-allowed rounded-xl hover:bg-slate-800 transition-all"
+        >
+          Selanjutnya
+        </button>
+      </div>
+    );
+  };
+
   // Color palette list for expense chart
   const chartColors = [
     '#10b981', '#6366f1', '#f43f5e', '#f59e0b', '#3b82f6', '#ec4899', '#8b5cf6'
@@ -1598,6 +1675,11 @@ export default function Home() {
         {!currentUser ? (
           <div className="flex items-center justify-center min-h-[85vh] px-4">
             <div className="w-full max-w-md glass-panel rounded-3xl p-8 shadow-2xl relative overflow-hidden border border-slate-800/80">
+              {loading && (
+                <div className="absolute top-0 left-0 right-0 h-1 bg-slate-900 overflow-hidden z-50">
+                  <div className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full animate-progress-bar"></div>
+                </div>
+              )}
               <div className="absolute -top-10 -right-10 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl"></div>
 
               <div className="text-center mb-8">
@@ -1659,9 +1741,10 @@ export default function Home() {
 
                 <button
                   type="submit"
-                  className="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-bold rounded-xl hover:shadow-lg hover:shadow-emerald-950/20 hover:from-emerald-400 hover:to-teal-400 transition-all duration-200"
+                  disabled={loading}
+                  className="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-500 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed text-slate-955 font-bold rounded-xl hover:shadow-lg hover:shadow-emerald-950/20 hover:from-emerald-400 hover:to-teal-400 transition-all duration-200"
                 >
-                  Masuk
+                  {loading ? 'Memproses...' : 'Masuk'}
                 </button>
               </form>
 
@@ -2148,6 +2231,11 @@ export default function Home() {
                   {isClosingTxModalOpen && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
                       <div className="w-full max-w-lg bg-[#0a0f1d] border border-slate-800/80 rounded-3xl p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
+                        {loading && (
+                          <div className="absolute top-0 left-0 right-0 h-1 bg-slate-900 overflow-hidden z-50 rounded-t-3xl">
+                            <div className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full animate-progress-bar"></div>
+                          </div>
+                        )}
 
                         {/* Close button */}
                         <button
@@ -2248,16 +2336,18 @@ export default function Home() {
                           <div className="flex justify-end gap-3 border-t border-slate-800/80 pt-4 mt-5">
                             <button
                               type="button"
+                              disabled={loading}
                               onClick={() => setIsClosingTxModalOpen(false)}
-                              className="px-5 py-2.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all"
+                              className="px-5 py-2.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-300 transition-all"
                             >
                               Batal
                             </button>
                             <button
                               type="submit"
-                              className="px-6 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-955 transition-all shadow-md shadow-emerald-950/20"
+                              disabled={loading}
+                              className="px-6 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-500 to-teal-500 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed hover:from-emerald-400 hover:to-teal-400 text-slate-955 transition-all shadow-md shadow-emerald-950/20"
                             >
-                              Simpan Transaksi
+                              {loading ? 'Menyimpan...' : 'Simpan Transaksi'}
                             </button>
                           </div>
                         </form>
@@ -2319,7 +2409,12 @@ export default function Home() {
                                 </tr>
                               );
                             }
-                            return masterTxs.map((tx) => {
+                            const itemsPerPage = 10;
+                            const totalPages = Math.ceil(masterTxs.length / itemsPerPage);
+                            const current = Math.min(currentPageActiveTx, totalPages || 1);
+                            const paginated = masterTxs.slice((current - 1) * itemsPerPage, current * itemsPerPage);
+
+                            return paginated.map((tx) => {
                               const canEdit = canModifyTx(tx);
                               return (
                                 <tr key={tx.id} className="border-b border-slate-850 hover:bg-slate-900/20 transition-all">
@@ -2365,6 +2460,15 @@ export default function Home() {
                         </tbody>
                       </table>
                     </div>
+
+                    {(() => {
+                      const masterTxs = transactions.filter(t =>
+                        String(t.user_id) === txUserId && t.tanggal === txDate && t.shift === txShift
+                      );
+                      const totalPages = Math.ceil(masterTxs.length / 10);
+                      const current = Math.min(currentPageActiveTx, totalPages || 1);
+                      return renderPagination(current, totalPages, setCurrentPageActiveTx);
+                    })()}
 
                     {/* Summary Block */}
                     {(() => {
@@ -2488,8 +2592,11 @@ export default function Home() {
                               Tidak ada transaksi finansial yang cocok dengan kriteria filter.
                             </td>
                           </tr>
-                        ) : (
-                          groupedTransactions.map((group) => {
+                        ) : (() => {
+                          const totalPages = Math.ceil(groupedTransactions.length / 10);
+                          const current = Math.min(currentPageHistory, totalPages || 1);
+                          const paginated = groupedTransactions.slice((current - 1) * 10, current * 10);
+                          return paginated.map((group) => {
                             const canEditGroup = canModifyGroup(group);
                             const canDeleteGrp = canDeleteGroup(group);
 
@@ -2568,7 +2675,7 @@ export default function Home() {
                                   </td>
                                 </tr>
                                 {expandedGroups[group.key] && (
-                                  <tr className="bg-slate-950/60 border-b border-slate-850">
+                                  <tr className="bg-slate-955/60 border-b border-slate-850">
                                     <td colSpan={8} className="p-4" onClick={(e) => e.stopPropagation()}>
                                       <div className="bg-[#090d18] border border-slate-800/80 rounded-2xl overflow-hidden p-4 space-y-3">
                                         <div className="flex justify-between items-center pb-2 border-b border-slate-800/60">
@@ -2582,7 +2689,7 @@ export default function Home() {
 
                                         <table className="w-full text-left text-[11px]">
                                           <thead>
-                                            <tr className="text-slate-500 border-b border-slate-850 font-bold uppercase text-[9px] tracking-wider">
+                                            <tr className="text-slate-500 border-b border-slate-855 font-bold uppercase text-[9px] tracking-wider">
                                               <th className="py-2 px-3">Waktu Masuk</th>
                                               <th className="py-2 px-3">Kategori</th>
                                               <th className="py-2 px-3">Tipe</th>
@@ -2659,11 +2766,17 @@ export default function Home() {
                                 )}
                               </React.Fragment>
                             );
-                          })
-                        )}
+                          });
+                        })()}
                       </tbody>
                     </table>
                   </div>
+
+                  {(() => {
+                    const totalPages = Math.ceil(groupedTransactions.length / 10);
+                    const current = Math.min(currentPageHistory, totalPages || 1);
+                    return renderPagination(current, totalPages, setCurrentPageHistory);
+                  })()}
 
                   {/* AUDIT LOG HISTORY SECTION */}
                   <div className="border-t border-slate-800 pt-6 mt-8 space-y-4">
@@ -2750,6 +2863,11 @@ export default function Home() {
                   {isTrxDtlModalOpen && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
                       <div className="w-full max-w-lg bg-[#0a0f1d] border border-slate-800/80 rounded-3xl p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
+                        {loading && (
+                          <div className="absolute top-0 left-0 right-0 h-1 bg-slate-900 overflow-hidden z-50 rounded-t-3xl">
+                            <div className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full animate-progress-bar"></div>
+                          </div>
+                        )}
 
                         {/* Close Button */}
                         <button
@@ -2843,16 +2961,18 @@ export default function Home() {
                           <div className="flex justify-end gap-3 border-t border-slate-800/80 pt-4 mt-5">
                             <button
                               type="button"
+                              disabled={loading}
                               onClick={handleCancelEditTrxDtl}
-                              className="px-5 py-2.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all"
+                              className="px-5 py-2.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-300 transition-all"
                             >
                               Batal
                             </button>
                             <button
                               type="submit"
-                              className="px-6 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-955 transition-all shadow-md shadow-emerald-950/20"
+                              disabled={loading}
+                              className="px-6 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-500 to-teal-500 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed hover:from-emerald-400 hover:to-teal-400 text-slate-955 transition-all shadow-md shadow-emerald-950/20"
                             >
-                              {editingDtl ? 'Simpan Perubahan' : 'Simpan Transaksi'}
+                              {loading ? 'Menyimpan...' : (editingDtl ? 'Simpan Perubahan' : 'Simpan Transaksi')}
                             </button>
                           </div>
                         </form>
@@ -2889,6 +3009,20 @@ export default function Home() {
                               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                             </svg>
                             Tambah Transaksi
+                          </button>
+                          <button
+                            onClick={handleRecalculateBalances}
+                            disabled={isRecalculating || loading}
+                            className="bg-amber-500 hover:bg-amber-400 disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed text-slate-955 text-xs font-bold px-3 py-1.5 rounded-xl transition-all shadow-sm flex items-center gap-1.5"
+                          >
+                            {isRecalculating ? (
+                              <span className="w-3.5 h-3.5 border-2 border-slate-955 border-t-transparent rounded-full animate-spin"></span>
+                            ) : (
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                              </svg>
+                            )}
+                            Recalculate Saldo
                           </button>
                         </div>
                         <p className="text-xs text-slate-400 mt-1">Menampilkan tabel transaksi mandiri dengan saldo berjalan terhitung otomatis.</p>
@@ -2977,18 +3111,23 @@ export default function Home() {
                               );
                             }
 
-                            return filtered.map((item) => {
+                            const itemsPerPage = 10;
+                            const totalPages = Math.ceil(filtered.length / itemsPerPage);
+                            const current = Math.min(currentPageTrxDtl, totalPages || 1);
+                            const paginated = filtered.slice((current - 1) * itemsPerPage, current * itemsPerPage);
+
+                            return paginated.map((item) => {
                               const isPemasukan = item.kategori?.tipe === 'pemasukan';
                               return (
                                 <tr key={item.id} className="hover:bg-slate-900/40 transition-colors">
                                   <td className="py-3.5 px-4 font-medium text-slate-300">{item.tanggal}</td>
                                   <td className="py-3.5 px-4">
-                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${isPemasukan ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-450 border border-rose-500/20'
+                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${isPemasukan ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-455 border border-rose-500/20'
                                       }`}>
                                       {item.kategori?.nama_kategori || `ID: ${item.kategori_id}`}
                                     </span>
                                   </td>
-                                  <td className={`py-3.5 px-4 text-right font-semibold ${isPemasukan ? 'text-emerald-400' : 'text-rose-450'}`}>
+                                  <td className={`py-3.5 px-4 text-right font-semibold ${isPemasukan ? 'text-emerald-400' : 'text-rose-455'}`}>
                                     {isPemasukan ? '+' : '-'}{formatIDR(item.nominal)}
                                   </td>
                                   <td className="py-3.5 px-4 text-right text-slate-455 font-mono">{formatIDR(item.saldo_awal)}</td>
@@ -3018,8 +3157,19 @@ export default function Home() {
                         </tbody>
                       </table>
                     </div>
-                  </div>
 
+                    {(() => {
+                      const filtered = trxDetails.filter(item => {
+                        if (filterDtlCategory && String(item.kategori_id) !== filterDtlCategory) return false;
+                        if (filterDtlStart && item.tanggal < filterDtlStart) return false;
+                        if (filterDtlEnd && item.tanggal > filterDtlEnd) return false;
+                        return true;
+                      });
+                      const totalPages = Math.ceil(filtered.length / 10);
+                      const current = Math.min(currentPageTrxDtl, totalPages || 1);
+                      return renderPagination(current, totalPages, setCurrentPageTrxDtl);
+                    })()}
+                  </div>
                 </div>
               )}
 
@@ -3031,6 +3181,11 @@ export default function Home() {
                   {isCategoryModalOpen && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
                       <div className="w-full max-w-md bg-[#0a0f1d] border border-slate-800/80 rounded-3xl p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
+                        {loading && (
+                          <div className="absolute top-0 left-0 right-0 h-1 bg-slate-900 overflow-hidden z-50 rounded-t-3xl">
+                            <div className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full animate-progress-bar"></div>
+                          </div>
+                        )}
 
                         {/* Close button */}
                         <button
@@ -3120,15 +3275,16 @@ export default function Home() {
                           <div className="flex justify-end gap-3 border-t border-slate-800/80 pt-4 mt-5">
                             <button
                               type="button"
+                              disabled={loading}
                               onClick={handleCancelEditCategory}
-                              className="px-5 py-2.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all"
+                              className="px-5 py-2.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-300 transition-all"
                             >
                               Batal
                             </button>
                             <button
                               type="submit"
                               disabled={loading || currentUser?.role !== 'owner'}
-                              className="px-6 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-955 transition-all shadow-md shadow-emerald-950/20"
+                              className="px-6 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-500 to-teal-500 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed hover:from-emerald-400 hover:to-teal-400 text-slate-955 transition-all shadow-md shadow-emerald-950/20"
                             >
                               {loading ? 'Menyimpan...' : 'Simpan'}
                             </button>
@@ -3191,7 +3347,8 @@ export default function Home() {
                             {categories.filter(c => c.tipe === 'pemasukan').length === 0 ? (
                               <p className="text-slate-500 text-xs text-center py-4">Belum ada jenis transaksi pemasukan.</p>
                             ) : (
-                              <div className="overflow-x-auto">
+                              <>
+                               <div className="overflow-x-auto">
                                 <table className="w-full text-left text-xs">
                                   <thead>
                                     <tr className="border-b border-slate-800/80 text-slate-400">
@@ -3201,47 +3358,60 @@ export default function Home() {
                                     </tr>
                                   </thead>
                                   <tbody className="divide-y divide-slate-800/40">
-                                    {categories.filter(c => c.tipe === 'pemasukan').map((c) => (
-                                      <tr key={c.id} className="hover:bg-slate-800/20 text-slate-300">
-                                        <td className="py-3 px-3 font-mono text-slate-500">{c.id}</td>
-                                        <td className="py-3 px-3 font-medium text-white">{c.nama_kategori}</td>
-                                        <td className="py-3 px-3 text-right">
-                                          <div className="flex items-center justify-end gap-1.5">
-                                            {currentUser?.role === 'owner' && (
+                                    {(() => {
+                                      const filtered = categories.filter(c => c.tipe === 'pemasukan');
+                                      const totalPages = Math.ceil(filtered.length / 10);
+                                      const current = Math.min(currentPageCategoriesPem, totalPages || 1);
+                                      const paginated = filtered.slice((current - 1) * 10, current * 10);
+                                      return paginated.map((c) => (
+                                        <tr key={c.id} className="hover:bg-slate-800/20 text-slate-300">
+                                          <td className="py-3 px-3 font-mono text-slate-500">{c.id}</td>
+                                          <td className="py-3 px-3 font-medium text-white">{c.nama_kategori}</td>
+                                          <td className="py-3 px-3 text-right">
+                                            <div className="flex items-center justify-end gap-1.5">
+                                              {currentUser?.role === 'owner' && (
+                                                <button
+                                                  onClick={() => {
+                                                    setEditingCategory(c);
+                                                    setCatName(c.nama_kategori);
+                                                    setCatIdInput(String(c.id));
+                                                    setCatType(c.tipe);
+                                                    setCatError('');
+                                                    setIsCategoryModalOpen(true);
+                                                  }}
+                                                  className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-all border border-slate-750"
+                                                  title="Edit Jenis Transaksi"
+                                                >
+                                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                                  </svg>
+                                                </button>
+                                              )}
                                               <button
-                                                onClick={() => {
-                                                  setEditingCategory(c);
-                                                  setCatName(c.nama_kategori);
-                                                  setCatIdInput(String(c.id));
-                                                  setCatType(c.tipe);
-                                                  setCatError('');
-                                                  setIsCategoryModalOpen(true);
-                                                }}
-                                                className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-all border border-slate-750"
-                                                title="Edit Jenis Transaksi"
+                                                onClick={() => handleDeleteCategory(c.id)}
+                                                className="p-1.5 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 rounded-lg transition-all border border-rose-500/15"
+                                                title="Hapus Jenis Transaksi"
                                               >
-                                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                                 </svg>
                                               </button>
-                                            )}
-                                            <button
-                                              onClick={() => handleDeleteCategory(c.id)}
-                                              className="p-1.5 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 rounded-lg transition-all border border-rose-500/15"
-                                              title="Hapus Jenis Transaksi"
-                                            >
-                                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                              </svg>
-                                            </button>
-                                          </div>
-                                        </td>
-                                      </tr>
-                                    ))}
+                                            </div>
+                                          </td>
+                                        </tr>
+                                      ));
+                                    })()}
                                   </tbody>
                                 </table>
                               </div>
-                            )}
+                              {(() => {
+                                const filtered = categories.filter(c => c.tipe === 'pemasukan');
+                                const totalPages = Math.ceil(filtered.length / 10);
+                                const current = Math.min(currentPageCategoriesPem, totalPages || 1);
+                                return renderPagination(current, totalPages, setCurrentPageCategoriesPem);
+                              })()}
+                            </>
+                          )}
                           </div>
                         )}
                       </div>
@@ -3267,7 +3437,8 @@ export default function Home() {
                             {categories.filter(c => c.tipe === 'pengeluaran').length === 0 ? (
                               <p className="text-slate-500 text-xs text-center py-4">Belum ada jenis transaksi pengeluaran.</p>
                             ) : (
-                              <div className="overflow-x-auto">
+                              <>
+                                <div className="overflow-x-auto">
                                 <table className="w-full text-left text-xs">
                                   <thead>
                                     <tr className="border-b border-slate-800/80 text-slate-400">
@@ -3277,47 +3448,60 @@ export default function Home() {
                                     </tr>
                                   </thead>
                                   <tbody className="divide-y divide-slate-800/40">
-                                    {categories.filter(c => c.tipe === 'pengeluaran').map((c) => (
-                                      <tr key={c.id} className="hover:bg-slate-800/20 text-slate-300">
-                                        <td className="py-3 px-3 font-mono text-slate-500">{c.id}</td>
-                                        <td className="py-3 px-3 font-medium text-white">{c.nama_kategori}</td>
-                                        <td className="py-3 px-3 text-right">
-                                          <div className="flex items-center justify-end gap-1.5">
-                                            {currentUser?.role === 'owner' && (
+                                    {(() => {
+                                      const filtered = categories.filter(c => c.tipe === 'pengeluaran');
+                                      const totalPages = Math.ceil(filtered.length / 10);
+                                      const current = Math.min(currentPageCategoriesPen, totalPages || 1);
+                                      const paginated = filtered.slice((current - 1) * 10, current * 10);
+                                      return paginated.map((c) => (
+                                        <tr key={c.id} className="hover:bg-slate-800/20 text-slate-300">
+                                          <td className="py-3 px-3 font-mono text-slate-500">{c.id}</td>
+                                          <td className="py-3 px-3 font-medium text-white">{c.nama_kategori}</td>
+                                          <td className="py-3 px-3 text-right">
+                                            <div className="flex items-center justify-end gap-1.5">
+                                              {currentUser?.role === 'owner' && (
+                                                <button
+                                                  onClick={() => {
+                                                    setEditingCategory(c);
+                                                    setCatName(c.nama_kategori);
+                                                    setCatIdInput(String(c.id));
+                                                    setCatType(c.tipe);
+                                                    setCatError('');
+                                                    setIsCategoryModalOpen(true);
+                                                  }}
+                                                  className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-all border border-slate-750"
+                                                  title="Edit Jenis Transaksi"
+                                                >
+                                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                                  </svg>
+                                                </button>
+                                              )}
                                               <button
-                                                onClick={() => {
-                                                  setEditingCategory(c);
-                                                  setCatName(c.nama_kategori);
-                                                  setCatIdInput(String(c.id));
-                                                  setCatType(c.tipe);
-                                                  setCatError('');
-                                                  setIsCategoryModalOpen(true);
-                                                }}
-                                                className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-all border border-slate-750"
-                                                title="Edit Jenis Transaksi"
+                                                onClick={() => handleDeleteCategory(c.id)}
+                                                className="p-1.5 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 rounded-lg transition-all border border-rose-500/15"
+                                                title="Hapus Jenis Transaksi"
                                               >
-                                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                                 </svg>
                                               </button>
-                                            )}
-                                            <button
-                                              onClick={() => handleDeleteCategory(c.id)}
-                                              className="p-1.5 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 rounded-lg transition-all border border-rose-500/15"
-                                              title="Hapus Jenis Transaksi"
-                                            >
-                                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                              </svg>
-                                            </button>
-                                          </div>
-                                        </td>
-                                      </tr>
-                                    ))}
+                                            </div>
+                                          </td>
+                                        </tr>
+                                      ));
+                                    })()}
                                   </tbody>
                                 </table>
                               </div>
-                            )}
+                              {(() => {
+                                const filtered = categories.filter(c => c.tipe === 'pengeluaran');
+                                const totalPages = Math.ceil(filtered.length / 10);
+                                const current = Math.min(currentPageCategoriesPen, totalPages || 1);
+                                return renderPagination(current, totalPages, setCurrentPageCategoriesPen);
+                              })()}
+                            </>
+                          )}
                           </div>
                         )}
                       </div>
@@ -3533,6 +3717,11 @@ export default function Home() {
                   {isUserModalOpen && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
                       <div className="w-full max-w-md bg-[#0a0f1d] border border-slate-800/80 rounded-3xl p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
+                        {loading && (
+                          <div className="absolute top-0 left-0 right-0 h-1 bg-slate-900 overflow-hidden z-50 rounded-t-3xl">
+                            <div className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full animate-progress-bar"></div>
+                          </div>
+                        )}
 
                         {/* Close button */}
                         <button
@@ -3616,16 +3805,18 @@ export default function Home() {
                           <div className="flex justify-end gap-3 border-t border-slate-800/80 pt-4 mt-5">
                             <button
                               type="button"
+                              disabled={loading}
                               onClick={() => setIsUserModalOpen(false)}
-                              className="px-5 py-2.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all"
+                              className="px-5 py-2.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-300 transition-all"
                             >
                               Batal
                             </button>
                             <button
                               type="submit"
-                              className="px-6 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-955 transition-all shadow-md shadow-emerald-950/20"
+                              disabled={loading}
+                              className="px-6 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-500 to-teal-500 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed hover:from-emerald-400 hover:to-teal-400 text-slate-955 transition-all shadow-md shadow-emerald-950/20"
                             >
-                              Tambah Pengguna
+                              {loading ? 'Menyimpan...' : 'Tambah Pengguna'}
                             </button>
                           </div>
                         </form>
@@ -3678,8 +3869,11 @@ export default function Home() {
                                 Tidak ada data pengguna terdaftar.
                               </td>
                             </tr>
-                          ) : (
-                            users.map((u) => (
+                          ) : (() => {
+                            const totalPages = Math.ceil(users.length / 10);
+                            const current = Math.min(currentPageUsers, totalPages || 1);
+                            const paginated = users.slice((current - 1) * 10, current * 10);
+                            return paginated.map((u) => (
                               <tr key={u.id} className="border-b border-slate-855 hover:bg-slate-900/30 transition-all">
                                 <td className="py-3.5 px-4 font-mono font-medium text-slate-400">#{u.id}</td>
                                 <td className="py-3.5 px-4 font-bold text-white capitalize flex items-center gap-2">
@@ -3719,11 +3913,17 @@ export default function Home() {
                                   </div>
                                 </td>
                               </tr>
-                            ))
-                          )}
+                            ));
+                          })()}
                         </tbody>
                       </table>
                     </div>
+
+                    {(() => {
+                      const totalPages = Math.ceil(users.length / 10);
+                      const current = Math.min(currentPageUsers, totalPages || 1);
+                      return renderPagination(current, totalPages, setCurrentPageUsers);
+                    })()}
                   </div>
 
                 </div>
@@ -3737,6 +3937,11 @@ export default function Home() {
                   {isStockItemModalOpen && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
                       <div className="w-full max-w-md bg-[#0a0f1d] border border-slate-800/80 rounded-3xl p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200">
+                        {loading && (
+                          <div className="absolute top-0 left-0 right-0 h-1 bg-slate-900 overflow-hidden z-50 rounded-t-3xl">
+                            <div className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full animate-progress-bar"></div>
+                          </div>
+                        )}
 
                         {/* Close button */}
                         <button
@@ -3812,16 +4017,18 @@ export default function Home() {
                           <div className="flex justify-end gap-3 border-t border-slate-800/80 pt-4 mt-5">
                             <button
                               type="button"
+                              disabled={loading}
                               onClick={handleCancelEditStockItem}
-                              className="px-5 py-2.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all"
+                              className="px-5 py-2.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-300 transition-all"
                             >
                               Batal
                             </button>
                             <button
                               type="submit"
-                              className="px-6 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-955 transition-all shadow-md shadow-emerald-950/20"
+                              disabled={loading}
+                              className="px-6 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-500 to-teal-500 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed hover:from-emerald-400 hover:to-teal-400 text-slate-955 transition-all shadow-md shadow-emerald-950/20"
                             >
-                              {editingStockItem ? 'Simpan Perubahan' : 'Tambah Barang'}
+                              {loading ? 'Menyimpan...' : (editingStockItem ? 'Simpan Perubahan' : 'Tambah Barang')}
                             </button>
                           </div>
                         </form>
@@ -3876,8 +4083,11 @@ export default function Home() {
                                 Tidak ada data barang terdaftar.
                               </td>
                             </tr>
-                          ) : (
-                            stockItems.map((item) => (
+                          ) : (() => {
+                            const totalPages = Math.ceil(stockItems.length / 10);
+                            const current = Math.min(currentPageStocks, totalPages || 1);
+                            const paginated = stockItems.slice((current - 1) * 10, current * 10);
+                            return paginated.map((item) => (
                               <tr key={item.id} className="border-b border-slate-855 hover:bg-slate-900/30 transition-all">
                                 <td className="py-3.5 px-4 font-mono font-medium text-slate-400">#{item.id}</td>
                                 <td className="py-3.5 px-4 font-bold text-white capitalize">{item.nama_barang}</td>
@@ -3904,11 +4114,17 @@ export default function Home() {
                                   </div>
                                 </td>
                               </tr>
-                            ))
-                          )}
+                            ));
+                          })()}
                         </tbody>
                       </table>
                     </div>
+
+                    {(() => {
+                      const totalPages = Math.ceil(stockItems.length / 10);
+                      const current = Math.min(currentPageStocks, totalPages || 1);
+                      return renderPagination(current, totalPages, setCurrentPageStocks);
+                    })()}
                   </div>
                 </div>
               )}
@@ -3921,6 +4137,11 @@ export default function Home() {
                   {isStockOpnameModalOpen && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
                       <div className="w-full max-w-3xl bg-[#0a0f1d] border border-slate-800/80 rounded-3xl p-6 shadow-2xl relative animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+                        {loading && (
+                          <div className="absolute top-0 left-0 right-0 h-1 bg-slate-900 overflow-hidden z-50 rounded-t-3xl">
+                            <div className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full animate-progress-bar"></div>
+                          </div>
+                        )}
 
                         {/* Close button */}
                         <button
@@ -4048,24 +4269,27 @@ export default function Home() {
                           <div className="flex justify-end gap-3 border-t border-slate-800/80 pt-4 shrink-0">
                             <button
                               type="button"
+                              disabled={loading}
                               onClick={() => setIsStockOpnameModalOpen(false)}
-                              className="px-5 py-2.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 transition-all"
+                              className="px-5 py-2.5 rounded-xl text-xs font-bold bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-300 transition-all"
                             >
                               Batal
                             </button>
                             <button
                               type="submit"
+                              disabled={loading}
                               onClick={() => setOpnameStatusSubmit('draft')}
-                              className="px-5 py-2.5 rounded-xl text-xs font-bold bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/30 transition-all"
+                              className="px-5 py-2.5 rounded-xl text-xs font-bold bg-amber-500/10 hover:bg-amber-500/20 disabled:bg-slate-800/50 disabled:text-slate-500 disabled:border-slate-800 disabled:cursor-not-allowed text-amber-400 border border-amber-500/30 transition-all"
                             >
-                              {editingStockOpname ? 'Simpan Draft' : 'Simpan sebagai Draft'}
+                              {loading ? 'Menyimpan...' : (editingStockOpname ? 'Simpan Draft' : 'Simpan sebagai Draft')}
                             </button>
                             <button
                               type="submit"
+                              disabled={loading}
                               onClick={() => setOpnameStatusSubmit('selesai')}
-                              className="px-6 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-955 transition-all shadow-md shadow-emerald-950/20"
+                              className="px-6 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-500 to-teal-500 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed hover:from-emerald-400 hover:to-teal-400 text-slate-955 transition-all shadow-md shadow-emerald-950/20"
                             >
-                              Selesaikan Opname
+                              {loading ? 'Memproses...' : 'Selesaikan Opname'}
                             </button>
                           </div>
                         </form>
@@ -4283,6 +4507,17 @@ export default function Home() {
                         });
                       })()}
                     </div>
+
+                    {(() => {
+                      const filtered = stockOpnames.filter(op => {
+                        if (filterOpnameStart && op.tanggal < filterOpnameStart) return false;
+                        if (filterOpnameEnd && op.tanggal > filterOpnameEnd) return false;
+                        return true;
+                      });
+                      const totalPages = Math.ceil(filtered.length / 10);
+                      const current = Math.min(currentPageOpnames, totalPages || 1);
+                      return renderPagination(current, totalPages, setCurrentPageOpnames);
+                    })()}
                   </div>
 
                 </div>
@@ -4296,6 +4531,11 @@ export default function Home() {
         {editingTx && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div className="w-full max-w-lg glass-panel rounded-3xl p-6 border border-slate-800 shadow-2xl relative">
+              {loading && (
+                <div className="absolute top-0 left-0 right-0 h-1 bg-slate-900 overflow-hidden z-50 rounded-t-3xl">
+                  <div className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full animate-progress-bar"></div>
+                </div>
+              )}
               <h3 className="text-base font-bold text-white mb-2">Koreksi Data Transaksi</h3>
               <p className="text-xs text-slate-400 mb-4">Pengeditan data transaksi masa lalu (Owner Mode).</p>
 
@@ -4364,17 +4604,18 @@ export default function Home() {
                 <div className="flex items-center justify-end gap-2 pt-2">
                   <button
                     type="button"
+                    disabled={loading}
                     onClick={() => setEditingTx(null)}
-                    className="px-4 py-2 bg-slate-800 text-slate-300 text-xs font-semibold rounded-xl hover:bg-slate-700 transition-all"
+                    className="px-4 py-2 bg-slate-800 text-slate-300 text-xs font-semibold rounded-xl hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                   >
                     Batal
                   </button>
                   <button
                     type="submit"
                     disabled={loading}
-                    className="px-4 py-2 bg-emerald-500 text-slate-950 text-xs font-bold rounded-xl hover:bg-emerald-400 transition-all"
+                    className="px-4 py-2 bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed text-slate-955 text-xs font-bold rounded-xl hover:bg-emerald-400 transition-all"
                   >
-                    Simpan Perubahan
+                    {loading ? 'Menyimpan...' : 'Simpan Perubahan'}
                   </button>
                 </div>
               </form>
@@ -4386,6 +4627,11 @@ export default function Home() {
         {editingUser && currentUser?.role === 'owner' && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div className="w-full max-w-md glass-panel rounded-3xl p-6 border border-slate-800 shadow-2xl relative">
+              {loading && (
+                <div className="absolute top-0 left-0 right-0 h-1 bg-slate-900 overflow-hidden z-50 rounded-t-3xl">
+                  <div className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full animate-progress-bar"></div>
+                </div>
+              )}
               <h3 className="text-base font-bold text-white mb-2">Manajemen Peran & Detail Pengguna</h3>
               <p className="text-xs text-slate-400 mb-4 font-medium">Ubah kredensial atau peran otorisasi pengguna.</p>
 
@@ -4445,17 +4691,18 @@ export default function Home() {
                 <div className="flex items-center justify-end gap-2 pt-2">
                   <button
                     type="button"
+                    disabled={loading}
                     onClick={() => setEditingUser(null)}
-                    className="px-4 py-2 bg-slate-800 text-slate-300 text-xs font-semibold rounded-xl hover:bg-slate-700 transition-all"
+                    className="px-4 py-2 bg-slate-800 text-slate-300 text-xs font-semibold rounded-xl hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                   >
                     Batal
                   </button>
                   <button
                     type="submit"
                     disabled={loading}
-                    className="px-4 py-2 bg-emerald-500 text-slate-950 text-xs font-bold rounded-xl hover:bg-emerald-400 transition-all"
+                    className="px-4 py-2 bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed text-slate-955 text-xs font-bold rounded-xl hover:bg-emerald-400 transition-all"
                   >
-                    Simpan Perubahan
+                    {loading ? 'Menyimpan...' : 'Simpan Perubahan'}
                   </button>
                 </div>
               </form>
@@ -4466,6 +4713,11 @@ export default function Home() {
         {isChangePasswordModalOpen && (
           <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
             <div className="w-full max-w-md bg-[#090d16] border border-slate-800 rounded-3xl p-8 shadow-2xl relative overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+              {loading && (
+                <div className="absolute top-0 left-0 right-0 h-1 bg-slate-900 overflow-hidden z-50">
+                  <div className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full animate-progress-bar"></div>
+                </div>
+              )}
               <div className="absolute -top-10 -right-10 w-32 h-32 bg-emerald-500/5 rounded-full blur-2xl"></div>
 
               <div className="text-center mb-6">
@@ -4551,6 +4803,7 @@ export default function Home() {
                 <div className="flex items-center gap-3 mt-6 pt-2">
                   <button
                     type="button"
+                    disabled={loading}
                     onClick={() => {
                       setIsChangePasswordModalOpen(false);
                       setNewPassword('');
@@ -4558,14 +4811,14 @@ export default function Home() {
                       setChangePasswordError('');
                       setChangePasswordSuccess('');
                     }}
-                    className="w-1/2 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-xl transition-all active:scale-95 text-xs text-center"
+                    className="w-1/2 py-3 bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-300 font-bold rounded-xl transition-all active:scale-95 text-xs text-center"
                   >
                     Batal
                   </button>
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-1/2 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-slate-950 font-bold rounded-xl hover:shadow-lg hover:shadow-emerald-950/20 hover:from-emerald-400 hover:to-teal-400 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed text-xs"
+                    className="w-1/2 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 disabled:from-slate-800 disabled:to-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed text-slate-955 font-bold rounded-xl hover:shadow-lg hover:shadow-emerald-950/20 hover:from-emerald-400 hover:to-teal-400 transition-all duration-200 text-xs"
                   >
                     {loading ? 'Menyimpan...' : 'Simpan Sandi'}
                   </button>

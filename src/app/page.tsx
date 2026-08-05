@@ -2437,14 +2437,16 @@ export default function Home() {
                                     {canEdit ? (
                                       <div className="flex items-center justify-end gap-1.5">
                                         <button
+                                          disabled={loading}
                                           onClick={() => handleOpenEdit(tx)}
-                                          className="px-2 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/15 rounded hover:bg-amber-500/20 text-[9px] font-semibold transition-all"
+                                          className="px-2 py-0.5 bg-amber-500/10 text-amber-400 border border-amber-500/15 rounded hover:bg-amber-500/20 disabled:opacity-40 disabled:cursor-not-allowed text-[9px] font-semibold transition-all"
                                         >
                                           Edit
                                         </button>
                                         <button
+                                          disabled={loading}
                                           onClick={() => handleDeleteTx(tx.id)}
-                                          className="px-2 py-0.5 bg-rose-500/10 text-rose-400 border border-rose-500/15 rounded hover:bg-rose-500/20 text-[9px] font-semibold transition-all"
+                                          className="px-2 py-0.5 bg-rose-500/10 text-rose-400 border border-rose-500/15 rounded hover:bg-rose-500/20 disabled:opacity-40 disabled:cursor-not-allowed text-[9px] font-semibold transition-all"
                                         >
                                           Hapus
                                         </button>

@@ -29,6 +29,7 @@ import {
   updateTrxDetail,
   deleteTrxDetail,
   recalculateTrxDtlBalances,
+  recalculateMonthlyMasterBalances,
   getStockItems,
   createStockItem,
   updateStockItem,
@@ -131,6 +132,7 @@ export default function Home() {
 
   // Recalculate State
   const [isRecalculating, setIsRecalculating] = useState(false);
+  const [isRecalculatingHistory, setIsRecalculatingHistory] = useState(false);
 
   // Pagination States
   const [currentPageActiveTx, setCurrentPageActiveTx] = useState(1);
@@ -904,6 +906,29 @@ export default function Home() {
       alert(`Gagal menghitung ulang saldo: ${err.message}`);
     } finally {
       setIsRecalculating(false);
+      setLoading(false);
+    }
+  };
+
+  const handleRecalculateHistoryBalances = async () => {
+    try {
+      setIsRecalculatingHistory(true);
+      setLoading(true);
+      
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth() + 1; // 1-12
+      
+      await recalculateMonthlyMasterBalances(currentYear, currentMonth);
+      
+      const fetchedTxs = await getTransactions();
+      setTransactions(fetchedTxs);
+      
+      alert('Perhitungan ulang saldo akhir Riwayat Closing Finansial berhasil diselesaikan untuk bulan berjalan!');
+    } catch (err: any) {
+      alert(`Gagal menghitung ulang saldo riwayat: ${err.message}`);
+    } finally {
+      setIsRecalculatingHistory(false);
       setLoading(false);
     }
   };
@@ -1793,10 +1818,10 @@ export default function Home() {
                   <div className="text-right hidden sm:block">
                     <span className="block text-xs font-semibold text-white capitalize">{currentUser.username}</span>
                     <span className={`inline-block text-[9px] font-extrabold uppercase px-2 py-0.5 rounded mt-0.5 border ${currentUser.role === 'kasir'
-                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                        : currentUser.role === 'manager'
-                          ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'
-                          : 'bg-violet-500/10 text-violet-400 border-violet-500/20'
+                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                      : currentUser.role === 'manager'
+                        ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'
+                        : 'bg-violet-500/10 text-violet-400 border-violet-500/20'
                       }`}>
                       {currentUser.role}
                     </span>
@@ -1837,8 +1862,8 @@ export default function Home() {
                 <button
                   onClick={() => { setActiveTab('dashboard'); setActiveDropdown(null); }}
                   className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all ${activeTab === 'dashboard'
-                      ? 'bg-slate-800 text-white shadow-sm'
-                      : 'text-slate-400 hover:text-slate-200'
+                    ? 'bg-slate-800 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200'
                     }`}
                 >
                   Dasbor
@@ -1852,43 +1877,43 @@ export default function Home() {
                     setActiveDropdown(null);
                   }}
                   className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all ${activeTab === 'transaction'
-                      ? 'bg-slate-800 text-white shadow-sm'
-                      : 'text-slate-400 hover:text-slate-200'
+                    ? 'bg-slate-800 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200'
                     }`}
                 >
                   Input Closing
+                </button>
+
+
+                <button
+                  onClick={() => { setActiveTab('stock_opname'); setActiveDropdown(null); }}
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all ${activeTab === 'stock_opname'
+                    ? 'bg-slate-800 text-white shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                >
+                  Stock Opname
                 </button>
 
                 {currentUser?.role === 'owner' && (
                   <button
                     onClick={() => { setActiveTab('transaction_dtl'); setActiveDropdown(null); }}
                     className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all ${activeTab === 'transaction_dtl'
-                        ? 'bg-slate-800 text-white shadow-sm'
-                        : 'text-slate-400 hover:text-slate-200'
+                      ? 'bg-slate-800 text-white shadow-sm'
+                      : 'text-slate-400 hover:text-slate-200'
                       }`}
                   >
                     Transaksi
                   </button>
                 )}
-
-                <button
-                  onClick={() => { setActiveTab('stock_opname'); setActiveDropdown(null); }}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all ${activeTab === 'stock_opname'
-                      ? 'bg-slate-800 text-white shadow-sm'
-                      : 'text-slate-400 hover:text-slate-200'
-                    }`}
-                >
-                  Stock Opname
-                </button>
-
                 {/* Laporan & Riwayat Dropdown / Button */}
                 {currentUser.role === 'manager' || currentUser.role === 'owner' ? (
                   <div className="relative">
                     <button
                       onClick={() => setActiveDropdown(activeDropdown === 'reports' ? null : 'reports')}
                       className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all ${activeTab === 'history' || activeTab === 'reports'
-                          ? 'bg-slate-800 text-white shadow-sm'
-                          : 'text-slate-400 hover:text-slate-200'
+                        ? 'bg-slate-800 text-white shadow-sm'
+                        : 'text-slate-400 hover:text-slate-200'
                         }`}
                     >
                       <span>Laporan & Riwayat</span>
@@ -1919,8 +1944,8 @@ export default function Home() {
                   <button
                     onClick={() => { setActiveTab('history'); setActiveDropdown(null); }}
                     className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all ${activeTab === 'history'
-                        ? 'bg-slate-800 text-white shadow-sm'
-                        : 'text-slate-400 hover:text-slate-200'
+                      ? 'bg-slate-800 text-white shadow-sm'
+                      : 'text-slate-400 hover:text-slate-200'
                       }`}
                   >
                     Riwayat Closing
@@ -1933,8 +1958,8 @@ export default function Home() {
                     <button
                       onClick={() => setActiveDropdown(activeDropdown === 'master' ? null : 'master')}
                       className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all ${activeTab === 'categories' || activeTab === 'stock_items' || activeTab === 'users'
-                          ? 'bg-slate-800 text-white shadow-sm'
-                          : 'text-slate-400 hover:text-slate-200'
+                        ? 'bg-slate-800 text-white shadow-sm'
+                        : 'text-slate-400 hover:text-slate-200'
                         }`}
                     >
                       <span>Master Data</span>
@@ -2114,8 +2139,8 @@ export default function Home() {
                             >
                               <div className="flex items-center gap-3">
                                 <div className={`p-2 rounded-xl shrink-0 ${tx.kategori?.tipe === 'pemasukan'
-                                    ? 'bg-emerald-500/10 text-emerald-400'
-                                    : 'bg-rose-500/10 text-rose-400'
+                                  ? 'bg-emerald-500/10 text-emerald-400'
+                                  : 'bg-rose-500/10 text-rose-400'
                                   }`}>
                                   {tx.kategori?.tipe === 'pemasukan' ? (
                                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -2422,8 +2447,8 @@ export default function Home() {
                                   <td className="py-3 px-3 font-semibold text-white">{tx.kategori?.nama_kategori || 'Kategori'}</td>
                                   <td className="py-3 px-3">
                                     <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase ${tx.kategori?.tipe === 'pemasukan'
-                                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/15'
-                                        : 'bg-rose-500/10 text-rose-400 border border-rose-500/15'
+                                      ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/15'
+                                      : 'bg-rose-500/10 text-rose-400 border border-rose-500/15'
                                       }`}>
                                       {tx.kategori?.tipe}
                                     </span>
@@ -2519,7 +2544,25 @@ export default function Home() {
 
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                      <h3 className="text-lg font-bold text-white">Riwayat Closing Finansial</h3>
+                      <div className="flex items-center gap-3">
+                        <h3 className="text-lg font-bold text-white">Riwayat Closing Finansial</h3>
+                        {currentUser?.role === 'owner' && (
+                          <button
+                            onClick={handleRecalculateHistoryBalances}
+                            disabled={isRecalculatingHistory || loading}
+                            className="bg-amber-500 hover:bg-amber-400 disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed text-slate-955 text-xs font-bold px-3 py-1.5 rounded-xl transition-all shadow-sm flex items-center gap-1.5"
+                          >
+                            {isRecalculatingHistory ? (
+                              <span className="w-3.5 h-3.5 border-2 border-slate-955 border-t-transparent rounded-full animate-spin"></span>
+                            ) : (
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                              </svg>
+                            )}
+                            Recalculate Saldo Akhir
+                          </button>
+                        )}
+                      </div>
                       <p className="text-xs text-slate-400 mt-1">
                         {currentUser.role === 'kasir'
                           ? 'Menampilkan transaksi kasir khusus hari ini.'
@@ -2710,8 +2753,8 @@ export default function Home() {
                                                   <td className="py-2.5 px-3 font-bold text-white">{tx.kategori?.nama_kategori || 'Tanpa Kategori'}</td>
                                                   <td className="py-2.5 px-3">
                                                     <span className={`px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase border ${tx.kategori?.tipe === 'pemasukan'
-                                                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                                                        : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                                                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                                      : 'bg-rose-500/10 text-rose-400 border-rose-500/20'
                                                       }`}>
                                                       {tx.kategori?.tipe}
                                                     </span>
@@ -2811,8 +2854,8 @@ export default function Home() {
                               <div className="space-y-1.5 w-full">
                                 <div className="flex flex-wrap items-center gap-2">
                                   <span className={`px-2 py-0.5 rounded text-[8px] font-extrabold uppercase ${log.aksi === 'EDIT'
-                                      ? 'bg-amber-500/10 text-amber-400 border border-amber-500/15'
-                                      : 'bg-rose-500/10 text-rose-400 border border-rose-500/15'
+                                    ? 'bg-amber-500/10 text-amber-400 border border-amber-500/15'
+                                    : 'bg-rose-500/10 text-rose-400 border border-rose-500/15'
                                     }`}>
                                     {log.aksi}
                                   </span>
@@ -3242,8 +3285,8 @@ export default function Home() {
                                 disabled={currentUser?.role !== 'owner'}
                                 onClick={() => setCatType('pemasukan')}
                                 className={`py-2 px-3 rounded-xl border text-xs font-semibold text-center transition-all disabled:opacity-50 disabled:cursor-not-allowed ${catType === 'pemasukan'
-                                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                                    : 'bg-[#0d1222] text-slate-400 border-slate-800 hover:text-white'
+                                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                                  : 'bg-[#0d1222] text-slate-400 border-slate-800 hover:text-white'
                                   }`}
                               >
                                 Pemasukan (+)
@@ -3253,8 +3296,8 @@ export default function Home() {
                                 disabled={currentUser?.role !== 'owner'}
                                 onClick={() => setCatType('pengeluaran')}
                                 className={`py-2 px-3 rounded-xl border text-xs font-semibold text-center transition-all disabled:opacity-50 disabled:cursor-not-allowed ${catType === 'pengeluaran'
-                                    ? 'bg-rose-500/10 text-rose-400 border-rose-500/30'
-                                    : 'bg-[#0d1222] text-slate-400 border-slate-800 hover:text-white'
+                                  ? 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+                                  : 'bg-[#0d1222] text-slate-400 border-slate-800 hover:text-white'
                                   }`}
                               >
                                 Pengeluaran (-)
@@ -3350,70 +3393,70 @@ export default function Home() {
                               <p className="text-slate-500 text-xs text-center py-4">Belum ada jenis transaksi pemasukan.</p>
                             ) : (
                               <>
-                               <div className="overflow-x-auto">
-                                <table className="w-full text-left text-xs">
-                                  <thead>
-                                    <tr className="border-b border-slate-800/80 text-slate-400">
-                                      <th className="py-2.5 px-3 font-semibold w-16">ID</th>
-                                      <th className="py-2.5 px-3 font-semibold">Nama Jenis Transaksi</th>
-                                      <th className="py-2.5 px-3 font-semibold w-24 text-right">Aksi</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody className="divide-y divide-slate-800/40">
-                                    {(() => {
-                                      const filtered = categories.filter(c => c.tipe === 'pemasukan');
-                                      const totalPages = Math.ceil(filtered.length / 10);
-                                      const current = Math.min(currentPageCategoriesPem, totalPages || 1);
-                                      const paginated = filtered.slice((current - 1) * 10, current * 10);
-                                      return paginated.map((c) => (
-                                        <tr key={c.id} className="hover:bg-slate-800/20 text-slate-300">
-                                          <td className="py-3 px-3 font-mono text-slate-500">{c.id}</td>
-                                          <td className="py-3 px-3 font-medium text-white">{c.nama_kategori}</td>
-                                          <td className="py-3 px-3 text-right">
-                                            <div className="flex items-center justify-end gap-1.5">
-                                              {currentUser?.role === 'owner' && (
+                                <div className="overflow-x-auto">
+                                  <table className="w-full text-left text-xs">
+                                    <thead>
+                                      <tr className="border-b border-slate-800/80 text-slate-400">
+                                        <th className="py-2.5 px-3 font-semibold w-16">ID</th>
+                                        <th className="py-2.5 px-3 font-semibold">Nama Jenis Transaksi</th>
+                                        <th className="py-2.5 px-3 font-semibold w-24 text-right">Aksi</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-800/40">
+                                      {(() => {
+                                        const filtered = categories.filter(c => c.tipe === 'pemasukan');
+                                        const totalPages = Math.ceil(filtered.length / 10);
+                                        const current = Math.min(currentPageCategoriesPem, totalPages || 1);
+                                        const paginated = filtered.slice((current - 1) * 10, current * 10);
+                                        return paginated.map((c) => (
+                                          <tr key={c.id} className="hover:bg-slate-800/20 text-slate-300">
+                                            <td className="py-3 px-3 font-mono text-slate-500">{c.id}</td>
+                                            <td className="py-3 px-3 font-medium text-white">{c.nama_kategori}</td>
+                                            <td className="py-3 px-3 text-right">
+                                              <div className="flex items-center justify-end gap-1.5">
+                                                {currentUser?.role === 'owner' && (
+                                                  <button
+                                                    onClick={() => {
+                                                      setEditingCategory(c);
+                                                      setCatName(c.nama_kategori);
+                                                      setCatIdInput(String(c.id));
+                                                      setCatType(c.tipe);
+                                                      setCatError('');
+                                                      setIsCategoryModalOpen(true);
+                                                    }}
+                                                    className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-all border border-slate-750"
+                                                    title="Edit Jenis Transaksi"
+                                                  >
+                                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                                    </svg>
+                                                  </button>
+                                                )}
                                                 <button
-                                                  onClick={() => {
-                                                    setEditingCategory(c);
-                                                    setCatName(c.nama_kategori);
-                                                    setCatIdInput(String(c.id));
-                                                    setCatType(c.tipe);
-                                                    setCatError('');
-                                                    setIsCategoryModalOpen(true);
-                                                  }}
-                                                  className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-all border border-slate-750"
-                                                  title="Edit Jenis Transaksi"
+                                                  onClick={() => handleDeleteCategory(c.id)}
+                                                  className="p-1.5 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 rounded-lg transition-all border border-rose-500/15"
+                                                  title="Hapus Jenis Transaksi"
                                                 >
-                                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                                   </svg>
                                                 </button>
-                                              )}
-                                              <button
-                                                onClick={() => handleDeleteCategory(c.id)}
-                                                className="p-1.5 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 rounded-lg transition-all border border-rose-500/15"
-                                                title="Hapus Jenis Transaksi"
-                                              >
-                                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                </svg>
-                                              </button>
-                                            </div>
-                                          </td>
-                                        </tr>
-                                      ));
-                                    })()}
-                                  </tbody>
-                                </table>
-                              </div>
-                              {(() => {
-                                const filtered = categories.filter(c => c.tipe === 'pemasukan');
-                                const totalPages = Math.ceil(filtered.length / 10);
-                                const current = Math.min(currentPageCategoriesPem, totalPages || 1);
-                                return renderPagination(current, totalPages, setCurrentPageCategoriesPem);
-                              })()}
-                            </>
-                          )}
+                                              </div>
+                                            </td>
+                                          </tr>
+                                        ));
+                                      })()}
+                                    </tbody>
+                                  </table>
+                                </div>
+                                {(() => {
+                                  const filtered = categories.filter(c => c.tipe === 'pemasukan');
+                                  const totalPages = Math.ceil(filtered.length / 10);
+                                  const current = Math.min(currentPageCategoriesPem, totalPages || 1);
+                                  return renderPagination(current, totalPages, setCurrentPageCategoriesPem);
+                                })()}
+                              </>
+                            )}
                           </div>
                         )}
                       </div>
@@ -3441,69 +3484,69 @@ export default function Home() {
                             ) : (
                               <>
                                 <div className="overflow-x-auto">
-                                <table className="w-full text-left text-xs">
-                                  <thead>
-                                    <tr className="border-b border-slate-800/80 text-slate-400">
-                                      <th className="py-2.5 px-3 font-semibold w-16">ID</th>
-                                      <th className="py-2.5 px-3 font-semibold">Nama Jenis Transaksi</th>
-                                      <th className="py-2.5 px-3 font-semibold w-24 text-right">Aksi</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody className="divide-y divide-slate-800/40">
-                                    {(() => {
-                                      const filtered = categories.filter(c => c.tipe === 'pengeluaran');
-                                      const totalPages = Math.ceil(filtered.length / 10);
-                                      const current = Math.min(currentPageCategoriesPen, totalPages || 1);
-                                      const paginated = filtered.slice((current - 1) * 10, current * 10);
-                                      return paginated.map((c) => (
-                                        <tr key={c.id} className="hover:bg-slate-800/20 text-slate-300">
-                                          <td className="py-3 px-3 font-mono text-slate-500">{c.id}</td>
-                                          <td className="py-3 px-3 font-medium text-white">{c.nama_kategori}</td>
-                                          <td className="py-3 px-3 text-right">
-                                            <div className="flex items-center justify-end gap-1.5">
-                                              {currentUser?.role === 'owner' && (
+                                  <table className="w-full text-left text-xs">
+                                    <thead>
+                                      <tr className="border-b border-slate-800/80 text-slate-400">
+                                        <th className="py-2.5 px-3 font-semibold w-16">ID</th>
+                                        <th className="py-2.5 px-3 font-semibold">Nama Jenis Transaksi</th>
+                                        <th className="py-2.5 px-3 font-semibold w-24 text-right">Aksi</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-slate-800/40">
+                                      {(() => {
+                                        const filtered = categories.filter(c => c.tipe === 'pengeluaran');
+                                        const totalPages = Math.ceil(filtered.length / 10);
+                                        const current = Math.min(currentPageCategoriesPen, totalPages || 1);
+                                        const paginated = filtered.slice((current - 1) * 10, current * 10);
+                                        return paginated.map((c) => (
+                                          <tr key={c.id} className="hover:bg-slate-800/20 text-slate-300">
+                                            <td className="py-3 px-3 font-mono text-slate-500">{c.id}</td>
+                                            <td className="py-3 px-3 font-medium text-white">{c.nama_kategori}</td>
+                                            <td className="py-3 px-3 text-right">
+                                              <div className="flex items-center justify-end gap-1.5">
+                                                {currentUser?.role === 'owner' && (
+                                                  <button
+                                                    onClick={() => {
+                                                      setEditingCategory(c);
+                                                      setCatName(c.nama_kategori);
+                                                      setCatIdInput(String(c.id));
+                                                      setCatType(c.tipe);
+                                                      setCatError('');
+                                                      setIsCategoryModalOpen(true);
+                                                    }}
+                                                    className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-all border border-slate-750"
+                                                    title="Edit Jenis Transaksi"
+                                                  >
+                                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                                    </svg>
+                                                  </button>
+                                                )}
                                                 <button
-                                                  onClick={() => {
-                                                    setEditingCategory(c);
-                                                    setCatName(c.nama_kategori);
-                                                    setCatIdInput(String(c.id));
-                                                    setCatType(c.tipe);
-                                                    setCatError('');
-                                                    setIsCategoryModalOpen(true);
-                                                  }}
-                                                  className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-all border border-slate-750"
-                                                  title="Edit Jenis Transaksi"
+                                                  onClick={() => handleDeleteCategory(c.id)}
+                                                  className="p-1.5 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 rounded-lg transition-all border border-rose-500/15"
+                                                  title="Hapus Jenis Transaksi"
                                                 >
-                                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                                   </svg>
                                                 </button>
-                                              )}
-                                              <button
-                                                onClick={() => handleDeleteCategory(c.id)}
-                                                className="p-1.5 bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 rounded-lg transition-all border border-rose-500/15"
-                                                title="Hapus Jenis Transaksi"
-                                              >
-                                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                                </svg>
-                                              </button>
-                                            </div>
-                                          </td>
-                                        </tr>
-                                      ));
-                                    })()}
-                                  </tbody>
-                                </table>
-                              </div>
-                              {(() => {
-                                const filtered = categories.filter(c => c.tipe === 'pengeluaran');
-                                const totalPages = Math.ceil(filtered.length / 10);
-                                const current = Math.min(currentPageCategoriesPen, totalPages || 1);
-                                return renderPagination(current, totalPages, setCurrentPageCategoriesPen);
-                              })()}
-                            </>
-                          )}
+                                              </div>
+                                            </td>
+                                          </tr>
+                                        ));
+                                      })()}
+                                    </tbody>
+                                  </table>
+                                </div>
+                                {(() => {
+                                  const filtered = categories.filter(c => c.tipe === 'pengeluaran');
+                                  const totalPages = Math.ceil(filtered.length / 10);
+                                  const current = Math.min(currentPageCategoriesPen, totalPages || 1);
+                                  return renderPagination(current, totalPages, setCurrentPageCategoriesPen);
+                                })()}
+                              </>
+                            )}
                           </div>
                         )}
                       </div>
@@ -3888,10 +3931,10 @@ export default function Home() {
                                 </td>
                                 <td className="py-3.5 px-4">
                                   <span className={`px-2 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-wider border ${u.role === 'kasir'
-                                      ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                                      : u.role === 'manager'
-                                        ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'
-                                        : 'bg-violet-500/10 text-violet-400 border-violet-500/20'
+                                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                    : u.role === 'manager'
+                                      ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'
+                                      : 'bg-violet-500/10 text-violet-400 border-violet-500/20'
                                     }`}>
                                     {u.role}
                                   </span>
@@ -4393,8 +4436,8 @@ export default function Home() {
                                     <div className="flex items-center gap-2">
                                       <span className="block text-xs font-black text-white">{indonesianDate}</span>
                                       <span className={`text-[8px] font-extrabold uppercase px-1.5 py-0.5 rounded border ${op.status === 'selesai'
-                                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                                          : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                        : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
                                         }`}>
                                         {op.status === 'selesai' ? 'SELESAI' : 'DRAFT'}
                                       </span>
@@ -4459,8 +4502,8 @@ export default function Home() {
                                     <div className="col-span-1 md:col-span-2 flex items-center justify-between border-b border-slate-800 pb-2 mb-2">
                                       <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Daftar Rincian Stok Persediaan</h4>
                                       <span className={`text-[9px] font-extrabold uppercase px-2 py-0.5 rounded border ${op.status === 'selesai'
-                                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                                          : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                                        : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
                                         }`}>
                                         STATUS: {op.status === 'selesai' ? 'SELESAI' : 'DRAFT'}
                                       </span>

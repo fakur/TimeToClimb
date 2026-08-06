@@ -743,6 +743,47 @@ export const recalculateMasterSaldoAkhir = async (masterId: number): Promise<num
   return saldoAkhir;
 };
 
+export const recalculateMonthlyMasterBalances = async (year: number, month: number): Promise<void> => {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const startDate = `${year}-${pad(month)}-01`;
+  const lastDay = new Date(year, month, 0).getDate();
+  const endDate = `${year}-${pad(month)}-${pad(lastDay)}`;
+
+  const { data: sessions, error } = await supabase
+    .from('master_transaksi')
+    .select('*')
+    .gte('tanggal', startDate)
+    .lte('tanggal', endDate)
+    .or('datastatus.is.null,datastatus.neq.DELETE')
+    .order('tanggal', { ascending: true })
+    .order('id', { ascending: true });
+
+  if (error || !sessions || sessions.length === 0) {
+    console.error('recalculateMonthlyMasterBalances error or empty:', error);
+    return;
+  }
+
+  let prevEndingBalance = 0;
+  for (let i = 0; i < sessions.length; i++) {
+    const session = sessions[i];
+    
+    if (i === 0) {
+      prevEndingBalance = await recalculateMasterSaldoAkhir(session.id);
+    } else {
+      const { error: updErr } = await supabase
+        .from('master_transaksi')
+        .update({ saldo_awal: prevEndingBalance })
+        .eq('id', session.id);
+        
+      if (updErr) {
+        console.error(`Error updating saldo_awal for session ${session.id}:`, updErr);
+      }
+      
+      prevEndingBalance = await recalculateMasterSaldoAkhir(session.id);
+    }
+  }
+};
+
 // 8. Transaksi Detail (trx_dtl) CRUD & Recalculate
 export interface TrxDtl {
   id: number;

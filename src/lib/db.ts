@@ -718,7 +718,8 @@ export const recalculateMasterSaldoAkhir = async (masterId: number): Promise<num
   const { data: details, error: dErr } = await supabase
     .from('detail_transaksi')
     .select('nominal, kategori:kategori_transaksi(tipe)')
-    .eq('master_transaksi_id', masterId);
+    .eq('master_transaksi_id', masterId)
+    .eq('datastatus', 'ACTIVE');
     
   if (dErr) return saldoAwal;
   
@@ -754,7 +755,7 @@ export const recalculateMonthlyMasterBalances = async (year: number, month: numb
     .select('*')
     .gte('tanggal', startDate)
     .lte('tanggal', endDate)
-    .or('datastatus.is.null,datastatus.neq.DELETE')
+    .eq('datastatus', 'ACTIVE')
     .order('tanggal', { ascending: true })
     .order('id', { ascending: true });
 

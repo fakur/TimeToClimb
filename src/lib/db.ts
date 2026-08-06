@@ -919,7 +919,7 @@ export const recalculateTrxDtlBalances = async (): Promise<void> => {
   const { data: rows, error } = await supabase
     .from('trx_dtl')
     .select('*, kategori:kategori_transaksi(tipe)')
-    .or('datastatus.is.null,datastatus.neq.DELETE')
+    .eq('datastatus', 'ACTIVE')
     .order('tanggal', { ascending: true })
     .order('id', { ascending: true });
 

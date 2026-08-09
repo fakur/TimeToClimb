@@ -57,13 +57,13 @@ export interface TransaksiHarian {
   edited_at?: string;
   edited_user_id?: number;
   datastatus?: string;
-  
+
   // Flattened master properties
   tanggal: string;
   shift: 'pagi' | 'siang' | 'malam' | 'operational';
   user_id: number; // master user_id
   saldo_akhir: number;
-  
+
   // Joined fields
   master?: MasterTransaksi;
   kategori?: KategoriTransaksi;
@@ -168,7 +168,7 @@ export const loginUser = async (username: string, password?: string): Promise<Us
     .or('datastatus.is.null,datastatus.neq.DELETE')
     .maybeSingle();
   if (error || !data) return null;
-  
+
   if (password !== undefined) {
     const hashed = await hashPassword(password);
     // Allow fallback to plain text password for backward compatibility during transition
@@ -347,7 +347,7 @@ export const getTransactions = async (): Promise<TransaksiHarian[]> => {
     `)
     .or('datastatus.is.null,datastatus.neq.DELETE')
     .order('id', { ascending: false });
-  
+
   if (error) {
     console.error('Supabase getTransactions error:', error);
     return [];
@@ -363,12 +363,12 @@ export const getTransactions = async (): Promise<TransaksiHarian[]> => {
     created_user_id: d.created_user_id,
     edited_at: d.edited_at,
     edited_user_id: d.edited_user_id,
-    
+
     tanggal: d.master?.tanggal || '',
     shift: d.master?.shift || 'pagi',
     user_id: d.master?.user_id || 0,
     saldo_akhir: d.master?.saldo_akhir || 0,
-    
+
     master: d.master,
     kategori: d.kategori,
     user: d.master?.user
@@ -392,9 +392,9 @@ export const createTransaction = async (
     .eq('tanggal', tanggal)
     .eq('shift', shift)
     .maybeSingle();
-    
+
   if (mFindError) throw mFindError;
-  
+
   if (existingMaster) {
     masterId = existingMaster.id;
   } else {
@@ -414,7 +414,7 @@ export const createTransaction = async (
     if (mError || !newMaster) throw mError;
     masterId = newMaster.id;
   }
-  
+
   const { data: newDetail, error: dError } = await supabase
     .from('detail_transaksi')
     .insert([{
@@ -428,9 +428,9 @@ export const createTransaction = async (
     .select()
     .single();
   if (dError || !newDetail) throw dError;
-  
+
   await recalculateMasterSaldoAkhir(masterId);
-  
+
   const txs = await getTransactions();
   return txs.find(t => t.id === newDetail.id) || null;
 };
@@ -446,12 +446,12 @@ export const updateTransaction = async (
     .eq('id', id)
     .single();
   if (detailErr || !detail) return false;
-  
+
   let newMasterId = detail.master_transaksi_id;
   const newDate = updates.tanggal !== undefined ? updates.tanggal : detail.master?.tanggal;
   const newShift = updates.shift !== undefined ? updates.shift : detail.master?.shift;
   const newUserId = updates.user_id !== undefined ? updates.user_id : detail.master?.user_id;
-  
+
   if (newDate !== detail.master?.tanggal || newShift !== detail.master?.shift || newUserId !== detail.master?.user_id) {
     const { data: existingMaster } = await supabase
       .from('master_transaksi')
@@ -460,7 +460,7 @@ export const updateTransaction = async (
       .eq('tanggal', newDate)
       .eq('shift', newShift)
       .maybeSingle();
-      
+
     if (existingMaster) {
       newMasterId = existingMaster.id;
     } else {
@@ -481,7 +481,7 @@ export const updateTransaction = async (
       newMasterId = newMaster.id;
     }
   }
-  
+
   const detailUpdates = {
     master_transaksi_id: newMasterId,
     kategori_id: updates.kategori_id !== undefined ? updates.kategori_id : detail.kategori_id,
@@ -490,20 +490,20 @@ export const updateTransaction = async (
     edited_at: new Date().toISOString(),
     edited_user_id
   };
-  
+
   const { error } = await supabase
     .from('detail_transaksi')
     .update(detailUpdates)
     .eq('id', id);
-    
+
   if (error) throw error;
-  
+
   const oldMasterId = detail.master_transaksi_id;
   await recalculateMasterSaldoAkhir(oldMasterId);
   if (newMasterId !== oldMasterId) {
     await recalculateMasterSaldoAkhir(newMasterId);
   }
-  
+
   return true;
 };
 
@@ -519,12 +519,12 @@ export const deleteTransaction = async (id: number): Promise<boolean> => {
     .from('detail_transaksi')
     .update({ datastatus: 'DELETE' })
     .eq('id', id);
-  
+
   if (error) {
     console.error('Supabase deleteTransaction error:', error);
     throw new Error(error.message);
   }
-  
+
   if (masterId) {
     await recalculateMasterSaldoAkhir(masterId);
   }
@@ -541,11 +541,11 @@ export const getMonthlyReport = async (month: number, year: number): Promise<Mon
     const txMonth = parseInt(parts[1]);
     return txYear === year && txMonth === month;
   });
-  
+
   let total_pemasukan = 0;
   let total_pengeluaran = 0;
   const categoryMap: { [key: string]: GroupedCategoryReport } = {};
-  
+
   filtered.forEach(t => {
     const isPemasukan = t.kategori?.tipe === 'pemasukan';
     if (isPemasukan) {
@@ -553,10 +553,10 @@ export const getMonthlyReport = async (month: number, year: number): Promise<Mon
     } else {
       total_pengeluaran += t.nominal;
     }
-    
+
     const catName = t.kategori?.nama_kategori || 'Kategori Tidak Diketahui';
     const catType = t.kategori?.tipe || 'pengeluaran';
-    
+
     if (!categoryMap[catName]) {
       categoryMap[catName] = {
         nama_kategori: catName,
@@ -566,10 +566,10 @@ export const getMonthlyReport = async (month: number, year: number): Promise<Mon
     }
     categoryMap[catName].total_nominal += t.nominal;
   });
-  
+
   const grouped_categories = Object.values(categoryMap).sort((a, b) => b.total_nominal - a.total_nominal);
   const laba_bersih = total_pemasukan - total_pengeluaran;
-  
+
   return {
     total_pemasukan,
     total_pengeluaran,
@@ -606,7 +606,7 @@ export const createLogHistory = async (
     detail_sesudah: detail_sesudah ? JSON.stringify(detail_sesudah) : null,
     created_at: new Date().toISOString()
   };
-  
+
   const { error } = await supabase
     .from('log_history')
     .insert([logEntry]);
@@ -667,9 +667,9 @@ export const saveSessionInfo = async (
     .eq('tanggal', tanggal)
     .eq('shift', shift)
     .maybeSingle();
-    
+
   if (findError) throw findError;
-  
+
   let masterId: number;
   if (existing) {
     masterId = existing.id;
@@ -699,33 +699,41 @@ export const saveSessionInfo = async (
     if (insertError || !inserted) throw insertError || new Error('Insert master failed');
     masterId = inserted.id;
   }
-  
+
   await recalculateMasterSaldoAkhir(masterId);
   return true;
 };
 
 // 7. Auto-recalculation helper for Master Saldo Akhir
-export const recalculateMasterSaldoAkhir = async (masterId: number): Promise<number> => {
-  const { data: master, error: mErr } = await supabase
-    .from('master_transaksi')
-    .select('saldo_awal')
-    .eq('id', masterId)
-    .single();
-  if (mErr || !master) return 0;
-  
-  const saldoAwal = Number(master.saldo_awal);
-  
+export const recalculateMasterSaldoAkhir = async (masterId: number, forcedSaldoAwal?: number): Promise<number> => {
+  let saldoAwal = 0;
+  if (forcedSaldoAwal !== undefined) {
+    saldoAwal = forcedSaldoAwal;
+    await supabase
+      .from('master_transaksi')
+      .update({ saldo_awal: saldoAwal })
+      .eq('id', masterId);
+  } else {
+    const { data: master, error: mErr } = await supabase
+      .from('master_transaksi')
+      .select('saldo_awal')
+      .eq('id', masterId)
+      .single();
+    if (mErr || !master) return 0;
+    saldoAwal = Number(master.saldo_awal);
+  }
+
   const { data: details, error: dErr } = await supabase
     .from('detail_transaksi')
     .select('nominal, kategori:kategori_transaksi(tipe)')
     .eq('master_transaksi_id', masterId)
     .eq('datastatus', 'ACTIVE');
-    
+
   if (dErr) return saldoAwal;
-  
+
   let totalPemasukan = 0;
   let totalPengeluaran = 0;
-  
+
   (details || []).forEach((d: any) => {
     if (d.kategori?.tipe === 'pemasukan') {
       totalPemasukan += Number(d.nominal);
@@ -733,14 +741,14 @@ export const recalculateMasterSaldoAkhir = async (masterId: number): Promise<num
       totalPengeluaran += Number(d.nominal);
     }
   });
-  
+
   const saldoAkhir = saldoAwal + totalPemasukan - totalPengeluaran;
-  
+
   await supabase
     .from('master_transaksi')
     .update({ saldo_akhir: saldoAkhir })
     .eq('id', masterId);
-    
+
   return saldoAkhir;
 };
 
@@ -767,20 +775,11 @@ export const recalculateMonthlyMasterBalances = async (year: number, month: numb
   let prevEndingBalance = 0;
   for (let i = 0; i < sessions.length; i++) {
     const session = sessions[i];
-    
+
     if (i === 0) {
       prevEndingBalance = await recalculateMasterSaldoAkhir(session.id);
     } else {
-      const { error: updErr } = await supabase
-        .from('master_transaksi')
-        .update({ saldo_awal: prevEndingBalance })
-        .eq('id', session.id);
-        
-      if (updErr) {
-        console.error(`Error updating saldo_awal for session ${session.id}:`, updErr);
-      }
-      
-      prevEndingBalance = await recalculateMasterSaldoAkhir(session.id);
+      prevEndingBalance = await recalculateMasterSaldoAkhir(session.id, prevEndingBalance);
     }
   }
 };
@@ -798,7 +797,7 @@ export interface TrxDtl {
   created_user_id?: number;
   edited_at?: string;
   edited_user_id?: number;
-  
+
   // Joined fields
   kategori?: KategoriTransaksi;
   user?: User;
@@ -835,7 +834,7 @@ export const getTrxDetails = async (): Promise<TrxDtl[]> => {
     created_user_id: d.created_user_id,
     edited_at: d.edited_at,
     edited_user_id: d.edited_user_id,
-    
+
     kategori: d.kategori,
     user: users.find(u => u.id === d.created_user_id)
   }));
@@ -944,7 +943,10 @@ export const recalculateTrxDtlBalances = async (): Promise<void> => {
           saldo_akhir: saldoAkhir
         })
         .eq('id', r.id);
-      
+
+
+      console.log(`Updated saldo_awal/akhir for row ID`, saldoAkhir); // ${r.nama_kategori}: `, saldoAwal, saldoAwal);
+
       if (updErr) {
         console.error(`Error updating saldo_awal/akhir for row ID ${r.id}:`, updErr);
       }

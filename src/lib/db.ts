@@ -773,10 +773,27 @@ export const recalculateMonthlyMasterBalances = async (year: number, month: numb
   }
 
   let prevEndingBalance = 0;
+  let hasPrev = false;
+
+  const { data: prevSession, error: prevErr } = await supabase
+    .from('master_transaksi')
+    .select('saldo_akhir')
+    .lt('tanggal', startDate)
+    .eq('datastatus', 'ACTIVE')
+    .order('tanggal', { ascending: false })
+    .order('id', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!prevErr && prevSession) {
+    prevEndingBalance = Number(prevSession.saldo_akhir);
+    hasPrev = true;
+  }
+
   for (let i = 0; i < sessions.length; i++) {
     const session = sessions[i];
 
-    if (i === 0) {
+    if (i === 0 && !hasPrev) {
       prevEndingBalance = await recalculateMasterSaldoAkhir(session.id);
     } else {
       prevEndingBalance = await recalculateMasterSaldoAkhir(session.id, prevEndingBalance);

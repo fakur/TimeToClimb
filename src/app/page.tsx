@@ -218,6 +218,24 @@ export default function Home() {
 
   const todayStr = getTodayDateString();
 
+  // Transaksi Mandiri (trx_dtl) Filtered list and totals
+  const filteredTrxDetails = trxDetails.filter(item => {
+    if (filterDtlCategory && String(item.kategori_id) !== filterDtlCategory) return false;
+    if (filterDtlStart && item.tanggal < filterDtlStart) return false;
+    if (filterDtlEnd && item.tanggal > filterDtlEnd) return false;
+    return true;
+  });
+
+  const totalDtlPemasukan = filteredTrxDetails.reduce((acc, item) => {
+    return acc + (item.kategori?.tipe === 'pemasukan' ? Number(item.nominal) || 0 : 0);
+  }, 0);
+
+  const totalDtlPengeluaran = filteredTrxDetails.reduce((acc, item) => {
+    return acc + (item.kategori?.tipe === 'pengeluaran' ? Number(item.nominal) || 0 : 0);
+  }, 0);
+
+  const netDtlBalance = totalDtlPemasukan - totalDtlPengeluaran;
+
   // Check DB connection mode and load initial user context
   useEffect(() => {
     const verifyConnection = async () => {
@@ -3122,6 +3140,43 @@ export default function Home() {
                       </div>
                     </div>
 
+                    {/* Summary Cards */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-slate-900/40 border border-slate-850 p-4 rounded-2xl">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/10">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                          </svg>
+                        </div>
+                        <div>
+                          <span className="text-[9px] text-slate-500 uppercase font-semibold block">Total Pemasukan (Filter)</span>
+                          <span className="text-xs font-extrabold mt-0.5 block text-emerald-400 font-mono">{formatIDR(totalDtlPemasukan)}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-rose-500/10 text-rose-400 rounded-xl border border-rose-500/10">
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12h-15" />
+                          </svg>
+                        </div>
+                        <div>
+                          <span className="text-[9px] text-slate-500 uppercase font-semibold block">Total Pengeluaran (Filter)</span>
+                          <span className="text-xs font-extrabold mt-0.5 block text-rose-400 font-mono">{formatIDR(totalDtlPengeluaran)}</span>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-xl border ${netDtlBalance >= 0 ? 'bg-teal-500/10 text-teal-400 border-teal-500/10' : 'bg-amber-500/10 text-amber-400 border-amber-500/10'}`}>
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <span className="text-[9px] text-slate-500 uppercase font-semibold block">Sisa Saldo (Filter)</span>
+                          <span className={`text-xs font-extrabold mt-0.5 block font-mono ${netDtlBalance >= 0 ? 'text-teal-400' : 'text-amber-400'}`}>{formatIDR(netDtlBalance)}</span>
+                        </div>
+                      </div>
+                    </div>
+
                     {/* Table */}
                     <div className="overflow-x-auto">
                       <table className="w-full text-left border-collapse">
@@ -3139,14 +3194,7 @@ export default function Home() {
                         </thead>
                         <tbody className="divide-y divide-slate-850 text-xs">
                           {(() => {
-                            const filtered = trxDetails.filter(item => {
-                              if (filterDtlCategory && String(item.kategori_id) !== filterDtlCategory) return false;
-                              if (filterDtlStart && item.tanggal < filterDtlStart) return false;
-                              if (filterDtlEnd && item.tanggal > filterDtlEnd) return false;
-                              return true;
-                            });
-
-                            if (filtered.length === 0) {
+                            if (filteredTrxDetails.length === 0) {
                               return (
                                 <tr>
                                   <td colSpan={8} className="py-8 text-center text-slate-500 font-medium">
@@ -3157,9 +3205,9 @@ export default function Home() {
                             }
 
                             const itemsPerPage = 10;
-                            const totalPages = Math.ceil(filtered.length / itemsPerPage);
+                            const totalPages = Math.ceil(filteredTrxDetails.length / itemsPerPage);
                             const current = Math.min(currentPageTrxDtl, totalPages || 1);
-                            const paginated = filtered.slice((current - 1) * itemsPerPage, current * itemsPerPage);
+                            const paginated = filteredTrxDetails.slice((current - 1) * itemsPerPage, current * itemsPerPage);
 
                             return paginated.map((item) => {
                               const isPemasukan = item.kategori?.tipe === 'pemasukan';
@@ -3204,13 +3252,7 @@ export default function Home() {
                     </div>
 
                     {(() => {
-                      const filtered = trxDetails.filter(item => {
-                        if (filterDtlCategory && String(item.kategori_id) !== filterDtlCategory) return false;
-                        if (filterDtlStart && item.tanggal < filterDtlStart) return false;
-                        if (filterDtlEnd && item.tanggal > filterDtlEnd) return false;
-                        return true;
-                      });
-                      const totalPages = Math.ceil(filtered.length / 10);
+                      const totalPages = Math.ceil(filteredTrxDetails.length / 10);
                       const current = Math.min(currentPageTrxDtl, totalPages || 1);
                       return renderPagination(current, totalPages, setCurrentPageTrxDtl);
                     })()}

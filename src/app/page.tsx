@@ -1637,14 +1637,23 @@ export default function Home() {
       g.saldoAkhir = g.saldoAwal + g.totalPemasukan - g.totalPengeluaran;
     });
 
+    const shiftOrder: Record<string, number> = {
+      malam: 1,
+      siang: 2,
+      pagi: 3,
+      operational: 4,
+    };
+
     const groupedList = Object.values(groupsMap).sort((a, b) => {
       if (a.tanggal !== b.tanggal) {
         return b.tanggal.localeCompare(a.tanggal);
       }
-      if (a.username !== b.username) {
-        return a.username.localeCompare(b.username);
+      const orderA = shiftOrder[a.shift] ?? 99;
+      const orderB = shiftOrder[b.shift] ?? 99;
+      if (orderA !== orderB) {
+        return orderA - orderB;
       }
-      return a.shift.localeCompare(b.shift);
+      return a.username.localeCompare(b.username);
     });
 
     return groupedList;

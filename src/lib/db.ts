@@ -101,6 +101,7 @@ export interface SessionInfo {
 
 export interface MstStock {
   id: number;
+  sort_num: number;
   nama_barang: string;
   satuan: string;
   keterangan?: string;
@@ -977,7 +978,7 @@ export const getStockItems = async (): Promise<MstStock[]> => {
     .from('mst_stocks')
     .select('*')
     .or('datastatus.is.null,datastatus.neq.DELETE')
-    .order('id', { ascending: true });
+    .order('sort_num', { ascending: true });
   if (error) {
     console.error('Supabase getStockItems error:', error);
     return [];

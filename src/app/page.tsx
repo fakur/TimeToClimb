@@ -176,6 +176,7 @@ export default function Home() {
   // Filter States for Transaction Dashboard Analytics
   const [trxDashPreset, setTrxDashPreset] = useState<'all' | 'today' | '7days' | 'month'>('month');
   const [trxDashShift, setTrxDashShift] = useState<string>('all');
+  const [isTrxDashCollapsed, setIsTrxDashCollapsed] = useState<boolean>(true);
 
   const [expandedCategoriesGroup, setExpandedCategoriesGroup] = useState<Record<string, boolean>>({
     pemasukan: true,
@@ -936,16 +937,16 @@ export default function Home() {
     try {
       setIsRecalculatingHistory(true);
       setLoading(true);
-      
+
       const now = new Date();
       const currentYear = now.getFullYear();
       const currentMonth = now.getMonth() + 1; // 1-12
-      
+
       await recalculateMonthlyMasterBalances(currentYear, currentMonth);
-      
+
       const fetchedTxs = await getTransactions();
       setTransactions(fetchedTxs);
-      
+
       alert('Perhitungan ulang saldo akhir Riwayat Closing Finansial berhasil diselesaikan untuk bulan berjalan!');
     } catch (err: any) {
       alert(`Gagal menghitung ulang saldo riwayat: ${err.message}`);
@@ -3158,237 +3159,286 @@ export default function Home() {
                   {(() => {
                     const analytics = getTransactionAnalytics();
                     return (
-                      <div className="glass-panel p-6 rounded-3xl border border-slate-800/80 max-w-6xl mx-auto space-y-6 relative overflow-hidden">
+                      <div className={`glass-panel p-6 rounded-3xl border border-slate-800/80 max-w-6xl mx-auto relative overflow-hidden transition-all duration-300 ${isTrxDashCollapsed ? 'space-y-0' : 'space-y-6'}`}>
                         {/* Glow background */}
-                        <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-emerald-500/10 via-teal-500/5 to-transparent rounded-full blur-3xl pointer-events-none"></div>
+                        {!isTrxDashCollapsed && (
+                          <div className="absolute top-0 right-0 w-96 h-96 bg-gradient-to-br from-emerald-500/10 via-teal-500/5 to-transparent rounded-full blur-3xl pointer-events-none"></div>
+                        )}
 
                         {/* Title & Filter Bar */}
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-800/80 pb-4">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <span className="w-2 h-4 bg-gradient-to-b from-emerald-400 to-teal-500 rounded-full"></span>
-                              <h3 className="text-base font-extrabold text-white tracking-tight">Dashboard Analisis Transaksi Detail</h3>
-                            </div>
-                            <p className="text-xs text-slate-400 mt-1">
-                              Ringkasan visual data transaksi finansial toko, rasio pemasukan vs pengeluaran, aktivitas petugas, dan kontribusi kategori.
-                            </p>
-                          </div>
+                        <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all duration-300 ${isTrxDashCollapsed ? '' : 'border-b border-slate-800/80 pb-4'}`}>
+                          <div className="flex items-start justify-between w-full sm:w-auto gap-4">
+                            <div>
+                              <div className="flex items-center gap-2">
 
-                          <div className="flex flex-wrap items-center gap-2">
-                            {/* Preset range */}
-                            <div className="flex items-center p-1 bg-slate-900/80 rounded-xl border border-slate-800">
-                              <button
-                                onClick={() => setTrxDashPreset('today')}
-                                className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all ${
-                                  trxDashPreset === 'today' ? 'bg-emerald-500 text-slate-950 shadow-sm' : 'text-slate-400 hover:text-white'
-                                }`}
-                              >
-                                Hari Ini
-                              </button>
-                              <button
-                                onClick={() => setTrxDashPreset('7days')}
-                                className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all ${
-                                  trxDashPreset === '7days' ? 'bg-emerald-500 text-slate-950 shadow-sm' : 'text-slate-400 hover:text-white'
-                                }`}
-                              >
-                                7 Hari
-                              </button>
-                              <button
-                                onClick={() => setTrxDashPreset('month')}
-                                className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all ${
-                                  trxDashPreset === 'month' ? 'bg-emerald-500 text-slate-950 shadow-sm' : 'text-slate-400 hover:text-white'
-                                }`}
-                              >
-                                Bulan Ini
-                              </button>
-                              <button
-                                onClick={() => setTrxDashPreset('all')}
-                                className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all ${
-                                  trxDashPreset === 'all' ? 'bg-emerald-500 text-slate-950 shadow-sm' : 'text-slate-400 hover:text-white'
-                                }`}
-                              >
-                                Semua
-                              </button>
-                            </div>
-                          </div>
-                        </div>
+                                <button
+                                  onClick={() => setIsTrxDashCollapsed(!isTrxDashCollapsed)}
+                                  className="hidden sm:flex px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-bold rounded-xl transition-all border border-slate-700/80 items-center gap-1.5"
+                                >
+                                  {isTrxDashCollapsed ? (
+                                    <>
+                                      <svg className="w-3.5 h-3.5 text-emerald-400 animate-pulse" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                                      </svg>
 
-                        {/* 4 Main KPI Cards */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                          {/* KPI 1: Pemasukan */}
-                          <div className="p-4 bg-slate-900/60 border border-slate-800 rounded-2xl">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Pemasukan</span>
-                              <div className="p-1.5 bg-emerald-500/10 text-emerald-400 rounded-lg">
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18" />
-                                </svg>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7-7 7 7" />
+                                      </svg>
+
+                                    </>
+                                  )}
+                                </button>
+                                <span className="w-2 h-4 bg-gradient-to-b from-emerald-400 to-teal-500 rounded-full"></span>
+                                <h3 className="text-base font-extrabold text-white tracking-tight">Dashboard Analisis Transaksi Detail</h3>
                               </div>
-                            </div>
-                            <h4 className="text-xl font-black text-emerald-400 mt-2 font-mono">{formatIDR(analytics.totalPemasukan)}</h4>
-                            <div className="flex items-center justify-between text-[10px] text-slate-400 mt-3 border-t border-slate-850 pt-2">
-                              <span>{analytics.countPemasukan} Transaksi</span>
-                              <span className="text-emerald-400 font-semibold">{analytics.incomeRatio.toFixed(1)}% Rasio</span>
-                            </div>
-                          </div>
-
-                          {/* KPI 2: Pengeluaran */}
-                          <div className="p-4 bg-slate-900/60 border border-slate-800 rounded-2xl">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Pengeluaran</span>
-                              <div className="p-1.5 bg-rose-500/10 text-rose-400 rounded-lg">
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-                                </svg>
-                              </div>
-                            </div>
-                            <h4 className="text-xl font-black text-rose-400 mt-2 font-mono">{formatIDR(analytics.totalPengeluaran)}</h4>
-                            <div className="flex items-center justify-between text-[10px] text-slate-400 mt-3 border-t border-slate-850 pt-2">
-                              <span>{analytics.countPengeluaran} Transaksi</span>
-                              <span className="text-rose-400 font-semibold">{(100 - analytics.incomeRatio).toFixed(1)}% Rasio</span>
-                            </div>
-                          </div>
-
-                          {/* KPI 3: Saldo Bersih */}
-                          <div className="p-4 bg-slate-900/60 border border-slate-800 rounded-2xl">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Laba / Arus Kas Bersih</span>
-                              <div className={`p-1.5 rounded-lg ${analytics.netProfit >= 0 ? 'bg-teal-500/10 text-teal-400' : 'bg-amber-500/10 text-amber-400'}`}>
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-6h6" />
-                                </svg>
-                              </div>
-                            </div>
-                            <h4 className={`text-xl font-black mt-2 font-mono ${analytics.netProfit >= 0 ? 'text-teal-400' : 'text-amber-400'}`}>
-                              {formatIDR(analytics.netProfit)}
-                            </h4>
-                            <div className="flex items-center justify-between text-[10px] text-slate-400 mt-3 border-t border-slate-850 pt-2">
-                              <span>Total Volume: {formatIDR(analytics.turnover)}</span>
-                            </div>
-                          </div>
-
-                          {/* KPI 4: Ticket Size */}
-                          <div className="p-4 bg-slate-900/60 border border-slate-800 rounded-2xl">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Rata-rata Transaksi</span>
-                              <div className="p-1.5 bg-sky-500/10 text-sky-400 rounded-lg">
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                                </svg>
-                              </div>
-                            </div>
-                            <h4 className="text-xl font-black text-sky-400 mt-2 font-mono">{formatIDR(analytics.avgTicket)}</h4>
-                            <div className="flex items-center justify-between text-[10px] text-slate-400 mt-3 border-t border-slate-850 pt-2">
-                              <span>{analytics.totalCount} Total Item Input</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Petugas & Category Breakdown Grid */}
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-2">
-
-                          {/* Analisis Kontribusi Petugas / Staf */}
-                          <div className="bg-slate-900/40 border border-slate-850 p-5 rounded-2xl space-y-4">
-                            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                              <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                                <span className="w-1.5 h-3 bg-indigo-500 rounded"></span>
-                                Aktivitas & Kontribusi Petugas Input
-                              </h4>
-                              <span className="text-[10px] text-slate-500 font-mono">{analytics.userAnalyticsList.length} Petugas Active</span>
-                            </div>
-
-                            <div className="space-y-3 max-h-[220px] overflow-y-auto pr-1">
-                              {analytics.userAnalyticsList.length === 0 ? (
-                                <p className="text-[10px] text-slate-500 py-3">Belum ada aktivitas petugas pada periode ini.</p>
-                              ) : (
-                                analytics.userAnalyticsList.map(uInfo => (
-                                  <div key={uInfo.username} className="p-3 bg-slate-900/80 border border-slate-800 rounded-xl space-y-1.5">
-                                    <div className="flex items-center justify-between">
-                                      <span className="text-xs font-bold text-white capitalize">{uInfo.username}</span>
-                                      <span className="px-2 py-0.5 bg-slate-800 text-[9px] font-mono text-slate-400 rounded">
-                                        {uInfo.count} transaksi
-                                      </span>
-                                    </div>
-                                    <div className="flex justify-between items-center text-[10px]">
-                                      <span className="text-emerald-400 font-semibold font-mono">Pemasukan: +{formatIDR(uInfo.totalPemasukan)}</span>
-                                      <span className="text-rose-400 font-semibold font-mono">Pengeluaran: -{formatIDR(uInfo.totalPengeluaran)}</span>
-                                    </div>
-                                  </div>
-                                ))
+                              {!isTrxDashCollapsed && (
+                                <p className="text-xs text-slate-400 mt-1">
+                                  Ringkasan visual data transaksi finansial toko, rasio pemasukan vs pengeluaran, aktivitas petugas, dan kontribusi kategori.
+                                </p>
                               )}
                             </div>
+                            <button
+                              onClick={() => setIsTrxDashCollapsed(!isTrxDashCollapsed)}
+                              className="sm:hidden px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-[10px] font-bold rounded-xl transition-all border border-slate-700/80 flex items-center gap-1"
+                            >
+                              {isTrxDashCollapsed ? (
+                                <>
+                                  <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                                  </svg>
+                                  Buka
+                                </>
+                              ) : (
+                                <>
+                                  <svg className="w-3.5 h-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7-7 7 7" />
+                                  </svg>
+                                  Tutup
+                                </>
+                              )}
+                            </button>
                           </div>
 
-                          {/* Distribusi Kategori Keuangan */}
-                          <div className="bg-slate-900/40 border border-slate-850 p-5 rounded-2xl space-y-4">
-                            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-                              <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
-                                <span className="w-1.5 h-3 bg-teal-400 rounded"></span>
-                                Distribusi Kategori Keuangan
-                              </h4>
-                              <span className="text-[10px] text-slate-500">Top 5 Kategori</span>
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                              {/* Pemasukan Top */}
-                              <div className="space-y-3">
-                                <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider block border-b border-slate-800/80 pb-1">
-                                  Pemasukan Terbesar
-                                </span>
-                                {analytics.topIncomeCategories.length === 0 ? (
-                                  <p className="text-[10px] text-slate-500 py-3">Belum ada data pemasukan.</p>
-                                ) : (
-                                  analytics.topIncomeCategories.slice(0, 4).map(cat => {
-                                    const pct = analytics.totalPemasukan > 0 ? (cat.total / analytics.totalPemasukan) * 100 : 0;
-                                    return (
-                                      <div key={cat.name} className="space-y-1">
-                                        <div className="flex justify-between items-center text-[10px]">
-                                          <span className="text-slate-300 font-medium truncate max-w-[120px]">{cat.name}</span>
-                                          <span className="text-emerald-400 font-mono font-bold">{formatIDR(cat.total)}</span>
-                                        </div>
-                                        <div className="w-full h-1 bg-slate-950/80 rounded-full overflow-hidden">
-                                          <div
-                                            className="h-full bg-emerald-400 rounded-full"
-                                            style={{ width: `${Math.min(100, pct)}%` }}
-                                          ></div>
-                                        </div>
-                                      </div>
-                                    );
-                                  })
-                                )}
+                          <div className="flex items-center gap-2 ml-auto sm:ml-0">
+                            {!isTrxDashCollapsed && (
+                              <div className="flex items-center p-1 bg-slate-900/80 rounded-xl border border-slate-800">
+                                <button
+                                  onClick={() => setTrxDashPreset('today')}
+                                  className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all ${trxDashPreset === 'today' ? 'bg-emerald-500 text-slate-950 shadow-sm' : 'text-slate-400 hover:text-white'
+                                    }`}
+                                >
+                                  Hari Ini
+                                </button>
+                                <button
+                                  onClick={() => setTrxDashPreset('7days')}
+                                  className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all ${trxDashPreset === '7days' ? 'bg-emerald-500 text-slate-950 shadow-sm' : 'text-slate-400 hover:text-white'
+                                    }`}
+                                >
+                                  7 Hari
+                                </button>
+                                <button
+                                  onClick={() => setTrxDashPreset('month')}
+                                  className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all ${trxDashPreset === 'month' ? 'bg-emerald-500 text-slate-950 shadow-sm' : 'text-slate-400 hover:text-white'
+                                    }`}
+                                >
+                                  Bulan Ini
+                                </button>
+                                <button
+                                  onClick={() => setTrxDashPreset('all')}
+                                  className={`px-2.5 py-1 text-[11px] font-bold rounded-lg transition-all ${trxDashPreset === 'all' ? 'bg-emerald-500 text-slate-950 shadow-sm' : 'text-slate-400 hover:text-white'
+                                    }`}
+                                >
+                                  Semua
+                                </button>
                               </div>
+                            )}
 
-                              {/* Pengeluaran Top */}
-                              <div className="space-y-3">
-                                <span className="text-[10px] font-bold text-rose-400 uppercase tracking-wider block border-b border-slate-800/80 pb-1">
-                                  Pengeluaran Terbesar
-                                </span>
-                                {analytics.topExpenseCategories.length === 0 ? (
-                                  <p className="text-[10px] text-slate-500 py-3">Belum ada data pengeluaran.</p>
-                                ) : (
-                                  analytics.topExpenseCategories.slice(0, 4).map(cat => {
-                                    const pct = analytics.totalPengeluaran > 0 ? (cat.total / analytics.totalPengeluaran) * 100 : 0;
-                                    return (
-                                      <div key={cat.name} className="space-y-1">
-                                        <div className="flex justify-between items-center text-[10px]">
-                                          <span className="text-slate-300 font-medium truncate max-w-[120px]">{cat.name}</span>
-                                          <span className="text-rose-400 font-mono font-bold">{formatIDR(cat.total)}</span>
-                                        </div>
-                                        <div className="w-full h-1 bg-slate-950/80 rounded-full overflow-hidden">
-                                          <div
-                                            className="h-full bg-rose-400 rounded-full"
-                                            style={{ width: `${Math.min(100, pct)}%` }}
-                                          ></div>
-                                        </div>
-                                      </div>
-                                    );
-                                  })
-                                )}
-                              </div>
-                            </div>
                           </div>
-
                         </div>
+
+                        {!isTrxDashCollapsed && (
+                          <>
+                            {/* 4 Main KPI Cards */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                              {/* KPI 1: Pemasukan */}
+                              <div className="p-4 bg-slate-900/60 border border-slate-800 rounded-2xl">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Pemasukan</span>
+                                  <div className="p-1.5 bg-emerald-500/10 text-emerald-400 rounded-lg">
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18" />
+                                    </svg>
+                                  </div>
+                                </div>
+                                <h4 className="text-xl font-black text-emerald-400 mt-2 font-mono">{formatIDR(analytics.totalPemasukan)}</h4>
+                                <div className="flex items-center justify-between text-[10px] text-slate-400 mt-3 border-t border-slate-850 pt-2">
+                                  <span>{analytics.countPemasukan} Transaksi</span>
+                                  <span className="text-emerald-400 font-semibold">{analytics.incomeRatio.toFixed(1)}% Rasio</span>
+                                </div>
+                              </div>
+
+                              {/* KPI 2: Pengeluaran */}
+                              <div className="p-4 bg-slate-900/60 border border-slate-800 rounded-2xl">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Pengeluaran</span>
+                                  <div className="p-1.5 bg-rose-500/10 text-rose-400 rounded-lg">
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                                    </svg>
+                                  </div>
+                                </div>
+                                <h4 className="text-xl font-black text-rose-400 mt-2 font-mono">{formatIDR(analytics.totalPengeluaran)}</h4>
+                                <div className="flex items-center justify-between text-[10px] text-slate-400 mt-3 border-t border-slate-850 pt-2">
+                                  <span>{analytics.countPengeluaran} Transaksi</span>
+                                  <span className="text-rose-400 font-semibold">{(100 - analytics.incomeRatio).toFixed(1)}% Rasio</span>
+                                </div>
+                              </div>
+
+                              {/* KPI 3: Saldo Bersih */}
+                              <div className="p-4 bg-slate-900/60 border border-slate-800 rounded-2xl">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Laba / Arus Kas Bersih</span>
+                                  <div className={`p-1.5 rounded-lg ${analytics.netProfit >= 0 ? 'bg-teal-500/10 text-teal-400' : 'bg-amber-500/10 text-amber-400'}`}>
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m-3-6h6" />
+                                    </svg>
+                                  </div>
+                                </div>
+                                <h4 className={`text-xl font-black mt-2 font-mono ${analytics.netProfit >= 0 ? 'text-teal-400' : 'text-amber-400'}`}>
+                                  {formatIDR(analytics.netProfit)}
+                                </h4>
+                                <div className="flex items-center justify-between text-[10px] text-slate-400 mt-3 border-t border-slate-850 pt-2">
+                                  <span>Total Volume: {formatIDR(analytics.turnover)}</span>
+                                </div>
+                              </div>
+
+                              {/* KPI 4: Ticket Size */}
+                              <div className="p-4 bg-slate-900/60 border border-slate-800 rounded-2xl">
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Rata-rata Transaksi</span>
+                                  <div className="p-1.5 bg-sky-500/10 text-sky-400 rounded-lg">
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                    </svg>
+                                  </div>
+                                </div>
+                                <h4 className="text-xl font-black text-sky-400 mt-2 font-mono">{formatIDR(analytics.avgTicket)}</h4>
+                                <div className="flex items-center justify-between text-[10px] text-slate-400 mt-3 border-t border-slate-850 pt-2">
+                                  <span>{analytics.totalCount} Total Item Input</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Petugas & Category Breakdown Grid */}
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-2">
+
+                              {/* Analisis Kontribusi Petugas / Staf */}
+                              <div className="bg-slate-900/40 border border-slate-850 p-5 rounded-2xl space-y-4">
+                                <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                                  <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                                    <span className="w-1.5 h-3 bg-indigo-500 rounded"></span>
+                                    Aktivitas & Kontribusi Petugas Input
+                                  </h4>
+                                  <span className="text-[10px] text-slate-500 font-mono">{analytics.userAnalyticsList.length} Petugas Active</span>
+                                </div>
+
+                                <div className="space-y-3 max-h-[220px] overflow-y-auto pr-1">
+                                  {analytics.userAnalyticsList.length === 0 ? (
+                                    <p className="text-[10px] text-slate-500 py-3">Belum ada aktivitas petugas pada periode ini.</p>
+                                  ) : (
+                                    analytics.userAnalyticsList.map(uInfo => (
+                                      <div key={uInfo.username} className="p-3 bg-slate-900/80 border border-slate-800 rounded-xl space-y-1.5">
+                                        <div className="flex items-center justify-between">
+                                          <span className="text-xs font-bold text-white capitalize">{uInfo.username}</span>
+                                          <span className="px-2 py-0.5 bg-slate-800 text-[9px] font-mono text-slate-400 rounded">
+                                            {uInfo.count} transaksi
+                                          </span>
+                                        </div>
+                                        <div className="flex justify-between items-center text-[10px]">
+                                          <span className="text-emerald-400 font-semibold font-mono">Pemasukan: +{formatIDR(uInfo.totalPemasukan)}</span>
+                                          <span className="text-rose-400 font-semibold font-mono">Pengeluaran: -{formatIDR(uInfo.totalPengeluaran)}</span>
+                                        </div>
+                                      </div>
+                                    ))
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Distribusi Kategori Keuangan */}
+                              <div className="bg-slate-900/40 border border-slate-850 p-5 rounded-2xl space-y-4">
+                                <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                                  <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                                    <span className="w-1.5 h-3 bg-teal-400 rounded"></span>
+                                    Distribusi Kategori Keuangan
+                                  </h4>
+                                  <span className="text-[10px] text-slate-500">Top 5 Kategori</span>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                  {/* Pemasukan Top */}
+                                  <div className="space-y-3">
+                                    <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider block border-b border-slate-800/80 pb-1">
+                                      Pemasukan Terbesar
+                                    </span>
+                                    {analytics.topIncomeCategories.length === 0 ? (
+                                      <p className="text-[10px] text-slate-500 py-3">Belum ada data pemasukan.</p>
+                                    ) : (
+                                      analytics.topIncomeCategories.slice(0, 4).map(cat => {
+                                        const pct = analytics.totalPemasukan > 0 ? (cat.total / analytics.totalPemasukan) * 100 : 0;
+                                        return (
+                                          <div key={cat.name} className="space-y-1">
+                                            <div className="flex justify-between items-center text-[10px]">
+                                              <span className="text-slate-300 font-medium truncate max-w-[120px]">{cat.name}</span>
+                                              <span className="text-emerald-400 font-mono font-bold">{formatIDR(cat.total)}</span>
+                                            </div>
+                                            <div className="w-full h-1 bg-slate-950/80 rounded-full overflow-hidden">
+                                              <div
+                                                className="h-full bg-emerald-400 rounded-full"
+                                                style={{ width: `${Math.min(100, pct)}%` }}
+                                              ></div>
+                                            </div>
+                                          </div>
+                                        );
+                                      })
+                                    )}
+                                  </div>
+
+                                  {/* Pengeluaran Top */}
+                                  <div className="space-y-3">
+                                    <span className="text-[10px] font-bold text-rose-400 uppercase tracking-wider block border-b border-slate-800/80 pb-1">
+                                      Pengeluaran Terbesar
+                                    </span>
+                                    {analytics.topExpenseCategories.length === 0 ? (
+                                      <p className="text-[10px] text-slate-500 py-3">Belum ada data pengeluaran.</p>
+                                    ) : (
+                                      analytics.topExpenseCategories.slice(0, 4).map(cat => {
+                                        const pct = analytics.totalPengeluaran > 0 ? (cat.total / analytics.totalPengeluaran) * 100 : 0;
+                                        return (
+                                          <div key={cat.name} className="space-y-1">
+                                            <div className="flex justify-between items-center text-[10px]">
+                                              <span className="text-slate-300 font-medium truncate max-w-[120px]">{cat.name}</span>
+                                              <span className="text-rose-400 font-mono font-bold">{formatIDR(cat.total)}</span>
+                                            </div>
+                                            <div className="w-full h-1 bg-slate-950/80 rounded-full overflow-hidden">
+                                              <div
+                                                className="h-full bg-rose-400 rounded-full"
+                                                style={{ width: `${Math.min(100, pct)}%` }}
+                                              ></div>
+                                            </div>
+                                          </div>
+                                        );
+                                      })
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                            </div>
+                          </>
+                        )}
 
                       </div>
                     );

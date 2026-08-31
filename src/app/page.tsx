@@ -177,6 +177,8 @@ export default function Home() {
   const [trxDashPreset, setTrxDashPreset] = useState<'all' | 'today' | '7days' | 'month'>('month');
   const [trxDashShift, setTrxDashShift] = useState<string>('all');
   const [isTrxDashCollapsed, setIsTrxDashCollapsed] = useState<boolean>(true);
+  const [selectedChartCategories, setSelectedChartCategories] = useState<number[]>([]);
+  const [chartHoveredIdx, setChartHoveredIdx] = useState<number | null>(null);
 
   const [expandedCategoriesGroup, setExpandedCategoriesGroup] = useState<Record<string, boolean>>({
     pemasukan: true,
@@ -325,6 +327,22 @@ export default function Home() {
   useEffect(() => {
     loadData();
   }, [currentUser]);
+
+  // Sync selected income categories for daily line chart
+  useEffect(() => {
+    if (categories.length > 0) {
+      const incomeCatIds = categories
+        .filter(c => c.tipe === 'pemasukan' && c.is_active !== false)
+        .map(c => c.id);
+      setSelectedChartCategories(prev => {
+        if (prev.length > 0) {
+          const valid = prev.filter(id => incomeCatIds.includes(id));
+          return valid.length > 0 ? valid : incomeCatIds;
+        }
+        return incomeCatIds;
+      });
+    }
+  }, [categories]);
 
   // Load Monthly Report when Month/Year filter changes
   useEffect(() => {
@@ -3331,6 +3349,404 @@ export default function Home() {
                                 </div>
                               </div>
                             </div>
+
+                            {/* LINE CHART HARIAN PEMASUKAN */}
+                            {(() => {
+                              const incomeCats = categories.filter(c => c.tipe === 'pemasukan');
+
+                              // Determine start and end date for line chart
+                              let chartStart = '';
+                              let chartEnd = todayStr;
+
+                              if (trxDashPreset === 'today' || trxDashPreset === '7days') {
+                                const d = new Date();
+                                d.setDate(d.getDate() - 6);
+                                const mStr = String(d.getMonth() + 1).padStart(2, '0');
+                                const dStr = String(d.getDate()).padStart(2, '0');
+                                chartStart = `${d.getFullYear()}-${mStr}-${dStr}`;
+                              } else if (trxDashPreset === 'month') {
+                                chartStart = `${todayStr.substring(0, 7)}-01`;
+                              } else {
+                                const allIncomeTxs = trxDetails.filter(t => t.kategori?.tipe === 'pemasukan');
+                                if (allIncomeTxs.length > 0) {
+                                  const sorted = allIncomeTxs.map(t => t.tanggal).sort();
+                                  chartStart = sorted[0];
+                                  chartEnd = sorted[sorted.length - 1];
+                                } else {
+                                  chartStart = todayStr;
+                                  chartEnd = todayStr;
+                                }
+                              }
+
+                              if (filterDtlStart) chartStart = filterDtlStart;
+                              if (filterDtlEnd) chartEnd = filterDtlEnd;
+                              if (!chartStart) chartStart = todayStr;
+                              if (!chartEnd) chartEnd = todayStr;
+
+                              // Generate continuous dates array
+                              const chartDateArr: string[] = [];
+                              const curDate = new Date(chartStart);
+                              const endDateObj = new Date(chartEnd);
+                              let loopCount = 0;
+                              while (curDate <= endDateObj && loopCount < 366) {
+                                const yr = curDate.getFullYear();
+                                const mo = String(curDate.getMonth() + 1).padStart(2, '0');
+                                const dy = String(curDate.getDate()).padStart(2, '0');
+                                chartDateArr.push(`${yr}-${mo}-${dy}`);
+                                curDate.setDate(curDate.getDate() + 1);
+                                loopCount++;
+                              }
+
+                              // Keep at most 31 dates for clean visual presentation
+                              const activeChartDates = chartDateArr.length > 31 ? chartDateArr.slice(-31) : chartDateArr;
+
+                              const selectedCatIdSet = new Set(selectedChartCategories);
+                              const dateNominalMap: Record<string, number> = {};
+                              activeChartDates.forEach(d => {
+                                dateNominalMap[d] = 0;
+                              });
+
+                              trxDetails.forEach(t => {
+                                if (t.kategori?.tipe === 'pemasukan' && selectedCatIdSet.has(t.kategori_id)) {
+                                  if (dateNominalMap[t.tanggal] !== undefined) {
+                                    dateNominalMap[t.tanggal] += Number(t.nominal) || 0;
+                                  }
+                                }
+                              });
+
+                              const chartDataPoints = activeChartDates.map(d => ({
+                                date: d,
+                                total: dateNominalMap[d] || 0
+                              }));
+
+                              const totalSelectedPeriod = chartDataPoints.reduce((acc, curr) => acc + curr.total, 0);
+
+                              const maxVal = Math.max(...chartDataPoints.map(d => d.total), 0);
+                              const computeYMax = (val: number) => {
+                                if (val <= 0) return 100000;
+                                const mag = Math.pow(10, Math.floor(Math.log10(val)));
+                                const ratio = val / mag;
+                                let factor = 10;
+                                if (ratio <= 1) factor = 1.2;
+                                else if (ratio <= 2) factor = 2.5;
+                                else if (ratio <= 5) factor = 6;
+                                else factor = 10;
+                                return Math.ceil(factor * mag);
+                              };
+                              const yAxisMax = computeYMax(maxVal);
+
+                              const formatShortIDR = (val: number) => {
+                                if (val >= 1000000000) return `${(val / 1000000000).toFixed(1).replace('.0', '')}M`;
+                                if (val >= 1000000) return `${(val / 1000000).toFixed(1).replace('.0', '')}Jt`;
+                                if (val >= 1000) return `${(val / 1000).toFixed(0)}rb`;
+                                return val.toString();
+                              };
+
+                              const formatLabelDate = (dateStr: string) => {
+                                if (!dateStr) return '';
+                                const parts = dateStr.split('-');
+                                if (parts.length < 3) return dateStr;
+                                const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agt', 'Sep', 'Okt', 'Nov', 'Des'];
+                                const day = parseInt(parts[2], 10);
+                                const monthIdx = parseInt(parts[1], 10) - 1;
+                                return `${day} ${months[monthIdx] || parts[1]}`;
+                              };
+
+                              const formatTooltipDate = (dateStr: string) => {
+                                if (!dateStr) return '';
+                                try {
+                                  const [y, m, d] = dateStr.split('-').map(Number);
+                                  const dt = new Date(y, m - 1, d);
+                                  const days = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'];
+                                  const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+                                  return `${days[dt.getDay()]}, ${d} ${months[m - 1]} ${y}`;
+                                } catch {
+                                  return dateStr;
+                                }
+                              };
+
+                              const svgW = 800;
+                              const svgH = 220;
+                              const padL = 65;
+                              const padR = 25;
+                              const padT = 20;
+                              const padB = 40;
+                              const pW = svgW - padL - padR;
+                              const pH = svgH - padT - padB;
+
+                              const svgPoints = chartDataPoints.map((dp, i) => {
+                                const x = chartDataPoints.length > 1
+                                  ? padL + (i / (chartDataPoints.length - 1)) * pW
+                                  : padL + pW / 2;
+                                const y = yAxisMax > 0
+                                  ? padT + pH - (dp.total / yAxisMax) * pH
+                                  : padT + pH;
+                                return { ...dp, x, y, index: i };
+                              });
+
+                              const linePathD = svgPoints.length > 0
+                                ? `M ${svgPoints[0].x} ${svgPoints[0].y} ` + svgPoints.slice(1).map(p => `L ${p.x} ${p.y}`).join(' ')
+                                : '';
+                              const areaPathD = svgPoints.length > 0
+                                ? `${linePathD} L ${svgPoints[svgPoints.length - 1].x} ${padT + pH} L ${svgPoints[0].x} ${padT + pH} Z`
+                                : '';
+
+                              const xLabelStep = Math.max(1, Math.ceil(chartDataPoints.length / 10));
+                              const yTicks = [0, yAxisMax * 0.33, yAxisMax * 0.66, yAxisMax];
+
+                              const hoveredPoint = chartHoveredIdx !== null && svgPoints[chartHoveredIdx] ? svgPoints[chartHoveredIdx] : null;
+
+                              return (
+                                <div className="bg-slate-900/50 border border-slate-800 p-5 rounded-2xl space-y-4">
+                                  {/* Header Line Chart & Filter Pill */}
+                                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-800/80 pb-4">
+                                    <div>
+                                      <div className="flex items-center gap-2">
+                                        <span className="w-1.5 h-3 bg-emerald-400 rounded"></span>
+                                        <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                                          Grafik Tren Harian Pemasukan
+                                        </h4>
+                                        <span className="text-[10px] bg-emerald-500/10 text-emerald-400 font-semibold px-2 py-0.5 rounded-full border border-emerald-500/20">
+                                          {selectedChartCategories.length} Kategori Dipilih
+                                        </span>
+                                      </div>
+                                      <p className="text-[11px] text-slate-400 mt-1">
+                                        Total akumulasi harian dari kategori pemasukan yang dicentang.
+                                        {chartDateArr.length > 31 && ' (Menampilkan 31 hari terakhir)'}
+                                      </p>
+                                    </div>
+
+                                    {/* Total on Period */}
+                                    <div className="flex items-center gap-2 bg-slate-950/70 border border-slate-800/80 px-3.5 py-1.5 rounded-xl">
+                                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Terpilih:</span>
+                                      <span className="text-xs font-black text-emerald-400 font-mono">{formatIDR(totalSelectedPeriod)}</span>
+                                    </div>
+                                  </div>
+
+                                  {/* Category Selectors Pills */}
+                                  <div className="space-y-2">
+                                    <div className="flex items-center justify-between">
+                                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                        Pilih Kategori Pemasukan:
+                                      </span>
+                                      <div className="flex items-center gap-2">
+                                        <button
+                                          onClick={() => setSelectedChartCategories(incomeCats.map(c => c.id))}
+                                          className="text-[10px] text-emerald-400 hover:text-emerald-300 font-bold underline transition-colors"
+                                        >
+                                          Pilih Semua
+                                        </button>
+                                        <span className="text-slate-600 text-xs">•</span>
+                                        <button
+                                          onClick={() => setSelectedChartCategories([])}
+                                          className="text-[10px] text-slate-400 hover:text-slate-300 font-semibold transition-colors"
+                                        >
+                                          Kosongkan
+                                        </button>
+                                      </div>
+                                    </div>
+
+                                    {/* Pills list */}
+                                    <div className="flex flex-wrap gap-2 pt-1">
+                                      {incomeCats.length === 0 ? (
+                                        <span className="text-xs text-slate-500 italic">Tidak ada master kategori tipe pemasukan.</span>
+                                      ) : (
+                                        incomeCats.map(c => {
+                                          const isSelected = selectedChartCategories.includes(c.id);
+                                          return (
+                                            <button
+                                              key={c.id}
+                                              onClick={() => {
+                                                setSelectedChartCategories(prev =>
+                                                  prev.includes(c.id) ? prev.filter(id => id !== c.id) : [...prev, c.id]
+                                                );
+                                              }}
+                                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all border ${
+                                                isSelected
+                                                  ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-300 shadow-sm shadow-emerald-950/40'
+                                                  : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-300'
+                                              }`}
+                                            >
+                                              <span className={`w-2 h-2 rounded-full ${isSelected ? 'bg-emerald-400 animate-pulse' : 'bg-slate-600'}`}></span>
+                                              <span>{c.nama_kategori}</span>
+                                            </button>
+                                          );
+                                        })
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* Line Chart SVG Canvas */}
+                                  <div className="relative w-full overflow-hidden pt-2">
+                                    {selectedChartCategories.length === 0 ? (
+                                      <div className="flex flex-col items-center justify-center py-12 text-center text-slate-500 space-y-2">
+                                        <svg className="w-8 h-8 opacity-40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        <p className="text-xs font-medium">Pilih minimal 1 kategori pemasukan di atas untuk menampilkan grafik tren.</p>
+                                      </div>
+                                    ) : (
+                                      <div className="relative w-full">
+                                        {/* SVG Chart */}
+                                        <svg
+                                          viewBox={`0 0 ${svgW} ${svgH}`}
+                                          className="w-full h-auto overflow-visible select-none"
+                                        >
+                                          <defs>
+                                            {/* Area Gradient */}
+                                            <linearGradient id="emeraldAreaGradient" x1="0" y1="0" x2="0" y2="1">
+                                              <stop offset="0%" stopColor="#10b981" stopOpacity="0.35" />
+                                              <stop offset="100%" stopColor="#10b981" stopOpacity="0.0" />
+                                            </linearGradient>
+                                          </defs>
+
+                                          {/* Horizontal Gridlines & Y-Axis Labels */}
+                                          {yTicks.map((tickVal, idx) => {
+                                            const y = yAxisMax > 0 ? padT + pH - (tickVal / yAxisMax) * pH : padT + pH;
+                                            return (
+                                              <g key={idx}>
+                                                <line
+                                                  x1={padL}
+                                                  y1={y}
+                                                  x2={padL + pW}
+                                                  y2={y}
+                                                  stroke="#334155"
+                                                  strokeWidth="1"
+                                                  strokeDasharray="4 4"
+                                                  strokeOpacity="0.5"
+                                                />
+                                                <text
+                                                  x={padL - 10}
+                                                  y={y + 3.5}
+                                                  fill="#64748b"
+                                                  fontSize="10"
+                                                  fontWeight="600"
+                                                  textAnchor="end"
+                                                  fontFamily="monospace"
+                                                >
+                                                  {formatShortIDR(tickVal)}
+                                                </text>
+                                              </g>
+                                            );
+                                          })}
+
+                                          {/* Area Fill */}
+                                          {areaPathD && (
+                                            <path
+                                              d={areaPathD}
+                                              fill="url(#emeraldAreaGradient)"
+                                              className="transition-all duration-300"
+                                            />
+                                          )}
+
+                                          {/* Main Trend Line */}
+                                          {linePathD && (
+                                            <path
+                                              d={linePathD}
+                                              fill="none"
+                                              stroke="#10b981"
+                                              strokeWidth="2.5"
+                                              strokeLinecap="round"
+                                              strokeLinejoin="round"
+                                              className="transition-all duration-300"
+                                            />
+                                          )}
+
+                                          {/* Data Point Dots */}
+                                          {svgPoints.map((p, idx) => (
+                                            <circle
+                                              key={idx}
+                                              cx={p.x}
+                                              cy={p.y}
+                                              r={chartHoveredIdx === idx ? 6 : 3}
+                                              fill={chartHoveredIdx === idx ? '#10b981' : '#0f172a'}
+                                              stroke={chartHoveredIdx === idx ? '#ffffff' : '#10b981'}
+                                              strokeWidth={chartHoveredIdx === idx ? 2 : 1.5}
+                                              className="transition-all duration-150 pointer-events-none"
+                                            />
+                                          ))}
+
+                                          {/* X-Axis Dates */}
+                                          {svgPoints.map((p, idx) => {
+                                            if (idx % xLabelStep !== 0 && idx !== svgPoints.length - 1) return null;
+                                            return (
+                                              <text
+                                                key={idx}
+                                                x={p.x}
+                                                y={padT + pH + 20}
+                                                fill={chartHoveredIdx === idx ? '#34d399' : '#64748b'}
+                                                fontSize="10"
+                                                fontWeight={chartHoveredIdx === idx ? 'bold' : '500'}
+                                                textAnchor="middle"
+                                              >
+                                                {formatLabelDate(p.date)}
+                                              </text>
+                                            );
+                                          })}
+
+                                          {/* Hover guideline */}
+                                          {hoveredPoint && (
+                                            <line
+                                              x1={hoveredPoint.x}
+                                              y1={padT}
+                                              x2={hoveredPoint.x}
+                                              y2={padT + pH}
+                                              stroke="#34d399"
+                                              strokeWidth="1.5"
+                                              strokeDasharray="3 3"
+                                              className="pointer-events-none"
+                                            />
+                                          )}
+
+                                          {/* Transparent Hover Hit Slices */}
+                                          {svgPoints.map((p, idx) => {
+                                            const sliceW = svgPoints.length > 1 ? pW / (svgPoints.length - 1) : pW;
+                                            const sliceX = p.x - sliceW / 2;
+                                            return (
+                                              <rect
+                                                key={idx}
+                                                x={Math.max(padL, sliceX)}
+                                                y={padT}
+                                                width={sliceW}
+                                                height={pH + 25}
+                                                fill="transparent"
+                                                className="cursor-pointer"
+                                                onMouseEnter={() => setChartHoveredIdx(idx)}
+                                                onMouseLeave={() => setChartHoveredIdx(null)}
+                                              />
+                                            );
+                                          })}
+                                        </svg>
+
+                                        {/* Floating Interactive Tooltip */}
+                                        {hoveredPoint && (
+                                          <div
+                                            className="absolute z-20 pointer-events-none transition-all duration-75"
+                                            style={{
+                                              left: `${(hoveredPoint.x / svgW) * 100}%`,
+                                              top: `${Math.max(0, (hoveredPoint.y / svgH) * 100 - 30)}%`,
+                                              transform: hoveredPoint.x > svgW * 0.7 ? 'translate(-105%, -50%)' : 'translate(10%, -50%)'
+                                            }}
+                                          >
+                                            <div className="bg-[#0b1329]/95 backdrop-blur-md border border-emerald-500/40 rounded-xl p-2.5 shadow-xl text-left min-w-[150px]">
+                                              <div className="text-[10px] font-semibold text-slate-400">
+                                                {formatTooltipDate(hoveredPoint.date)}
+                                              </div>
+                                              <div className="text-xs font-black text-emerald-400 font-mono mt-0.5">
+                                                {formatIDR(hoveredPoint.total)}
+                                              </div>
+                                              <div className="text-[9px] text-slate-500 mt-1 border-t border-slate-800 pt-1">
+                                                {hoveredPoint.total === 0 ? 'Tidak ada pemasukan' : 'Total pemasukan terpilih'}
+                                              </div>
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })()}
 
                             {/* Petugas & Category Breakdown Grid */}
                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-2">
